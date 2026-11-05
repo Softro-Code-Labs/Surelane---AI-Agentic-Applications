@@ -1,0 +1,28 @@
+Nimali Perera
+Senior Software Engineer
+nimali.perera@example.com | +94 77 123 4567 | Colombo, Sri Lanka
+
+PROFESSIONAL SUMMARY
+Software engineer with experience building web platforms for finance and logistics clients.
+
+WORK EXPERIENCE
+Senior Software Engineer at Lanka Fintech Labs
+Jan 2021 - Present
+• Led a team of 4 engineers building a React and Node.js payments dashboard used by 40,000 customers
+• Reduced API latency by 35% by redesigning PostgreSQL queries
+
+Software Engineer at Ceylon Logistics Systems
+Mar 2018 - Dec 2020
+• Built REST API services in TypeScript and deployed them with Docker on AWS
+
+EDUCATION
+BSc (Hons) in Computer Science, University of Moratuwa, 2017
+
+SKILLS
+JavaScript, TypeScript, React, Next.js, Node.js, PostgreSQL, Docker, AWS, Git, REST API, Agile, Communication, Leadership
+
+CERTIFICATIONS
+AWS Certified Developer Associate
+
+LANGUAGES
+English, Sinhala, Tamil

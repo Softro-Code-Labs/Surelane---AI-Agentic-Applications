@@ -1,0 +1,34 @@
+name: check-sources
+
+# Run this by hand after deploying, and whenever a source shows as failed.
+# It calls every job source once, stores nothing, and prints what came back.
+on:
+  workflow_dispatch:
+    inputs:
+      keywords:
+        description: Comma-separated search terms
+        default: software engineer,accountant
+      boards:
+        description: Career pages to test, comma-separated
+        default: lever:aleph
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - run: npm run sources:check
+        env:
+          CHECK_KEYWORDS: ${{ inputs.keywords }}
+          CHECK_BOARDS: ${{ inputs.boards }}
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          HIMALAYAS_API_KEY: ${{ secrets.HIMALAYAS_API_KEY }}

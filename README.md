@@ -1,1 +1,233 @@
-# Surelane---AI-Agentic-Applications
+# Surelane
+
+Your clear, safe lane to real jobs. Upload your CV once, and Surelane searches permitted job sources at 8:00 AM, 12:30 PM and 5:00 PM Sri Lanka time, checks that vacancies are still open, ranks them against your CV, and emails you the new ones. It keeps running when your computer is off.
+
+It costs nothing to run. GitHub and cron-job.org are confirmed to work with no card. Supabase's and Vercel's pricing pages don't state a card rule outright, so if either asks for one at sign-up, stop rather than enter it. **Do not add a card to GitHub:** without one, going over the free allowance stops the runs instead of charging you.
+
+## Find your way around
+
+| Menu | What's there |
+|---|---|
+| Today | The next search, your three search times, what needs you, your best matches and your numbers. |
+| Jobs | Every open match, with filters. **Add a job you found** is here too. |
+| Applications | Saved jobs by stage, with notes, deadlines and cover letters. |
+| You | My CV and Career insights. |
+| Search setup | Search settings, Career pages, Job sources, Search history and Storage. |
+
+On a phone, these five sit in a tab bar at the bottom, and you can add Surelane to your home screen from the browser menu. To choose light, dark or match your device, open **Search setup > Search settings > Appearance**.
+
+## Already running the earlier version?
+
+Replace the code and redeploy. Nothing else changes: the database, your data, every environment variable, the sign-in and the GitHub workflow all stay as they are. The design and navigation are new, and every page keeps its old address, so saved links still work.
+
+## What runs where
+
+| Part | Service | Free limits to know about |
+|---|---|---|
+| Dashboard | Vercel Hobby | Personal, non-commercial use only. 1M function calls a month. If you exceed a limit you may have to wait up to 30 days. |
+| Database and CV | Supabase Free | 500 MB database, 2 active projects. Paused after too little activity in a week. The agent's daily activity should prevent that, but Supabase does not guarantee it. |
+| Searches | GitHub Actions, private repo | About 2,000 minutes a month ($12 of included compute at Linux rates). Runs stop, rather than bill you, if you use it all and have no card on file. |
+| Exact timing | cron-job.org | Free. 30-second timeout. A job is switched off after more than 25 failures in a row. |
+| Local AI | Ollama, inside GitHub's runner | Runs on 2 CPU cores, so it is slow. See Local AI below. |
+| Email | Gmail with an app password | About 500 emails a day, far more than this app sends. |
+
+The app has no public sign-up: the first account closes registration, and that account needs your `SETUP_CODE`.
+
+## What it can search
+
+**Searched automatically:** ITPro.lk (RSS), Himalayas, Jobicy, Remotive, Remote OK (only with Global on), the company career pages on your list, RSS feeds you add, and Jooble once you have a free key.
+
+**Not searched:** LinkedIn, Indeed, Glassdoor, TopJobs.lk, Rooster, XpressJobs, JobMasters.lk and Finders.lk. None offers permitted automated access that could be confirmed. The agent never reports them as checked. **Search setup > Job sources** has a one-click search link for each, and **Add a job you found** scores anything you find there.
+
+**Coverage warning:** ITPro.lk is IT-focused and the others are mostly remote roles. If your field is not IT, Sri Lankan coverage will be thin until you add Jooble and the career pages of employers you care about.
+
+## Setup, about 45 minutes
+
+You need free accounts on GitHub, Vercel, Supabase and cron-job.org, plus a Gmail account.
+
+### 1. Put the code on GitHub
+
+Create a **private** repository, then upload this folder. Private matters: GitHub disables schedules in public repositories after 60 days of no activity.
+
+### 2. Create the database
+
+1. In Supabase, create a project. Singapore is the closest region.
+2. Open **Connect**, choose **Transaction pooler** (port 6543), and copy the connection string. Do not use the direct connection: it is IPv6 and GitHub's runners cannot reach it.
+3. Put your database password into the string. This is your `DATABASE_URL`.
+
+### 3. Make three secret values
+
+Run this three times, or use a password manager to generate long random strings:
+
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+These are `APP_SECRET`, `CRON_SECRET` and `SETUP_CODE`. Save them. If you lose `APP_SECRET`, you need to upload your CV again.
+
+### 4. Set up Gmail
+
+Turn on 2-Step Verification in your Google account, then create an **App password**. This 16-character value is your `SMTP_PASS`.
+
+### 5. Add settings to GitHub
+
+In your repository, open **Settings > Secrets and variables > Actions**.
+
+Secrets: `DATABASE_URL`, `APP_SECRET`, `SMTP_USER` (your Gmail address), `SMTP_PASS`.
+
+Variables: `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `465`, `SMTP_FROM` = your Gmail address, `APP_URL` = your Vercel address (add this after step 7), and `AI_PROVIDER` = `ollama` if you want local AI, or leave it out at first.
+
+### 6. Allow Search now to start the worker
+
+In GitHub, create a **fine-grained personal access token** for this repository only, with **Actions: Read and write**. This is your `GITHUB_DISPATCH_TOKEN`.
+
+### 7. Deploy the dashboard
+
+1. In Vercel, import the repository.
+2. Add these environment variables: `DATABASE_URL`, `APP_SECRET`, `SETUP_CODE`, `CRON_SECRET`, `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPO` (your-name/your-repo), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `APP_URL`, and `AI_PROVIDER` if you set it in step 5.
+3. Deploy, then add the address to GitHub as the `APP_URL` variable.
+
+### 8. Create the tables
+
+In GitHub, open **Actions > agent > Run workflow**. This creates the tables. Wait for the green tick before opening the app.
+
+### 9. Make the timing exact
+
+GitHub's timer can run late, and in busy periods it can drop runs. cron-job.org keeps the times accurate. Create four jobs, each with:
+
+- URL: `https://your-app.vercel.app/api/cron/tick`
+- Method: `POST`
+- Header: `Authorization: Bearer YOUR_CRON_SECRET`
+- Time zone: `Asia/Colombo`
+- Times: 08:00, 12:30, 17:00 and 03:00 (the last one is the daily cleanup)
+
+### 10. Start using it
+
+1. Open your Vercel address and create your account, using `SETUP_CODE`.
+2. Upload your CV and check that the profile looks right.
+3. In **Search setup > Search settings**, send a test email, and set your preferences.
+4. Click **Search now**, and open **Search setup > Search history** when it finishes.
+
+### 11. Confirm the live sources
+
+In GitHub, run **Actions > check-sources**. It calls every source once and prints what came back. **Do this before relying on the agent.** The adapters were built from each provider's documentation in an environment that could not reach them, so this is their first real test. If one fails, Search history shows the error, and the other sources carry on.
+
+### Optional
+
+- **Jooble:** request a free key on its API page, then add the `JOOBLE_API_KEY` secret in GitHub. Check whether it returns useful Sri Lankan jobs for your field, because that could not be confirmed.
+
+## Company career pages
+
+Open **Search setup > Career pages**, paste one link per line, and choose **Add and check**. Each link is checked straight away, then at every search time. You can list up to 100 companies. To name one yourself, write `Company name, https://link`.
+
+The agent reads each page in this order:
+
+1. **A hiring system.** Lever, Greenhouse, Ashby, SmartRecruiters, Workable and Recruitee have public job data, including when a company's own page embeds one of them. This is the most reliable route. Workable and Recruitee are less formally documented than the others.
+2. **Structured job data** on the page, which often includes the closing date.
+3. **Job links or headings** on a plain web page. This route is best effort: unusual layouts can be missed.
+
+What each status means:
+
+| Status | Meaning |
+|---|---|
+| Readable | Vacancies were found. |
+| No vacancies found | The page was read, and nothing looked like a vacancy. |
+| Cannot be read | Jobs load through scripts, or are posted as PDFs. Add the hiring-system link if there is one. |
+| **Not allowed** | The company's robots.txt says no, its site refused access, or the page needs a sign-in or anti-bot check. The agent shows this straight after you add the page, does not read it, and does not try to get around it. |
+| Check failed | A temporary problem, or a wrong link. It retries at the next search. |
+
+The robots and access checks run again at every search, so a company that later allows access starts working by itself. The agent can't read a site's written terms of use, so a site could still forbid automated reading there. Check the terms of any site you depend on, above all before commercial use.
+
+If a page doesn't state a location, jobs are marked with the location you chose, followed by "(assumed)". A job that disappears from a page it was found on is marked closed. An empty or unreadable page never closes anything.
+
+Your list is kept until you delete it, and isn't part of the 30-day cleanup.
+
+## Local AI
+
+Set `AI_PROVIDER=ollama` as a GitHub variable and in Vercel. Each search then installs Ollama on the runner, restores the `gemma3:1b` model (about 815 MB) from cache, and uses it to refine the top matches and write better cover letters and summaries.
+
+- **No hardware needed from you:** it runs on GitHub's 2-core, 8 GB runner, so your CV stays on your own infrastructure.
+- **Speed:** expect roughly 20 to 40 seconds a job. This is an estimate, not a measurement. The run stops refining after `AI_TIME_BUDGET_SECONDS` (default 420), and remaining jobs keep their built-in score.
+- **Quality:** a 1 GB model is modest. It can reword and sense-check, but it isn't equal to a large cloud model. Its score is averaged with the built-in score rather than replacing it.
+- **Minutes:** with AI, plan on about 1,150 of your 2,000 monthly minutes. Without it, about 500. Heavy use of Search now adds to this.
+- **On your own computer:** a better machine can run a larger model, such as Phi-4 Mini, but the computer must be on at search time.
+
+If the model cannot start, the search still runs on the built-in engine, and every result shows which engine scored it.
+
+**Built-in engine (no AI model):** the app works fully with `AI_PROVIDER` unset. Scoring, explanations, cover letters and summaries all come from rules, so they are plainer but free, instant and private.
+
+**Gemini (optional, cloud):** its free tier currently allows about 500 requests a day on `gemini-3.5-flash-lite`. Google's own pricing page says free-tier content is **used to improve its products**. The app removes your name, email and phone first, but your experience and skills are still sent. Leave it off if that concerns you.
+
+## How your rules work
+
+**Schedule.** 8:00 AM, 12:30 PM and 5:00 PM Colombo time, each with its own switch. Times are fixed, because they also live in the GitHub workflow. A late trigger still runs for up to 2 hours. After that the slot shows as Missed in Search history. A slot can only run once a day, however many triggers arrive.
+
+**Agent switch.** Off means no scheduled searches, no Search now, and no job emails. A search already running stops at its next step and sends nothing. Daily cleanup keeps running while the agent is off, because it is maintenance, not a search.
+
+**Emails.** Sent only after scheduled searches. Jobs found by Search now go out with the next scheduled email. No job is emailed twice.
+
+**Active vacancies.** A job is only recommended if all of these hold:
+- Its deadline has not passed, and it isn't marked closed, filled or expired.
+- It was posted within your age limit (30 days by default), unless a later deadline is given.
+- Its source confirmed it within the last 3 days, by status check, employer board, listing page or live feed.
+
+No method is perfect. A site can leave a filled job up, so a confirmed job could still be gone when you apply.
+
+**30-day retention.** Runs daily at 3:00 AM Colombo time, using a rolling 30-day window from database timestamps. It deletes job listings, expired vacancy data, search results, search logs, temporary AI data and notification history. It never touches your CV, profile, account, settings or application tracker. If a search is running, cleanup waits for the next trigger. Saved jobs keep their own copy of the details, so they survive when the original job record is deleted.
+
+One decision to check: job records age from **when they were last seen**, not first found. A vacancy still listed on day 40 is current data, and deleting it would make it look new and email you again. A job stops being kept 30 days after it stops appearing.
+
+## Before you sell this
+
+The free setup above is for one person's own use. Selling it needs more:
+
+- **The name:** Surelane is a working name. A web search found no job product using it, but that isn't legal clearance. Have a trademark search done in your target markets, and check the domain names, before you print or launch anything.
+- **Hosting:** Vercel Hobby is non-commercial only, so a paid plan or another host is needed.
+- **Accounts:** the app has a single owner. Selling it needs multi-user accounts, billing and data separation.
+- **Personal data:** the main parts of Sri Lanka's Personal Data Protection Act are due to start on 1 January 2027. CVs are personal data, so take legal advice.
+- **Job sources:** re-read every source's terms for commercial use, and get permission where needed. Some of these allow personal use only, and page reading that suits one person may not suit a business.
+- **Email and AI:** use a proper email service, and hosting with enough capacity for local AI.
+
+## Running it yourself instead
+
+On an always-on machine with Postgres and Node 22, set the values from `.env.example`, then:
+
+```
+npm ci && npm run db:migrate && npm run build
+npm start                 # the dashboard
+npm run worker:loop       # searches and cleanup, no GitHub or cron-job.org needed
+```
+
+Run Search now from the same machine and the worker picks it up within a minute.
+
+## Development
+
+```
+TEST_DATABASE_URL=postgres://... npm test    # needs a real Postgres
+npm run typecheck
+```
+
+`tests/e2e/fixture-worker.ts` and `tests/e2e/net-stub.cjs` use labelled fake listings and websites for testing only. The application never imports them.
+
+### Design system
+
+Every color, in light and dark, comes from the tokens in `src/app/globals.css`, and each text and background pair was measured for contrast. Use the tokens rather than new colors.
+
+- **Color has one job each.** Blue is structure, green is safe, amber means look at this, and red means stop. A color never works alone: each state also has a word or an icon.
+- **One typeface.** Overpass, the highway-sign lettering behind the logo.
+- **The road is the signature.** The three stops on Today, the match meter (three chevrons for Strong, two for Good, one for Potential) and the stages in Applications all come from the logo's chevrons. Keep it to those places, so it stays special.
+- **Flat and calm.** Rows with hairlines, 6px corners, no shadows.
+- **Plain words.** Sentence case, no jargon, and no promise the app can't keep. Surelane checks that a listing is live, not that an employer is honest, and it says so.
+
+Shared parts live in `src/components`: `ui.tsx` for layout and labels, `controls.tsx` for switches and buttons, `feedback.tsx` for messages and confirmations, and `brand.tsx` for the logo.
+
+## If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| Missed in Search history | Check that cron-job.org is active and the GitHub workflow is enabled. |
+| A source shows Failed | Read the error in Search history. A provider may have changed its format. |
+| Nothing arrives by email | Use Send test email. Check `SMTP_*` in GitHub, not just Vercel. |
+| Queued never finishes | `GITHUB_DISPATCH_TOKEN` or `GITHUB_REPO` is wrong, so the search waits for the next trigger. |
+| This page could not load | Choose Try again. If it keeps happening, your Supabase project may be paused, so restore it. Check you used the pooler string. |
+| No readable text in your CV | It is a scanned image. Export a text PDF or DOCX. |

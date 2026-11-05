@@ -1,0 +1,217 @@
+@import "tailwindcss";
+@import "@fontsource-variable/overpass";
+
+/*
+  Surelane design tokens. Every pair used in the app is measured against WCAG.
+  Colour has one job each:
+    petrol blue  structure, navigation, main actions (trust)
+    green        on, searched, verified, still open (safe)
+    amber        look at this: a deadline is close
+    red          stop: something failed or was refused
+*/
+:root {
+  --canvas: #f3f6f7; --surface: #ffffff; --sunken: #e9f0f2; --line: #d3dee2; --edge: #6b8590;
+  --ink: #0f2a38; --soft: #46606c;
+  --primary: #0f3f56; --primary-hover: #16536f; --on-primary: #ffffff; --road: #14697a;
+  --safe: #149c7c; --safe-strong: #0a6e55; --safe-soft: #ddf3ec;
+  --info-strong: #115e6e; --info-soft: #e0eef2;
+  --warn: #b26a00; --warn-strong: #6e4400; --warn-soft: #fdf0d5;
+  --stop: #b3261e; --stop-strong: #8f1d17; --stop-soft: #fbe6e3; --on-stop: #ffffff;
+  --band: #0f3f56; --band-deep: #0b3043; --on-band: #ffffff; --on-band-soft: #b9d6de;
+  --safe-bright: #68e6c2; --sky: #a0d9df; --focus: #0b7a93;
+  --logo-a: #0f3f56; --logo-c: #167686; --logo-b: #149c7c; --logo-word: #0f3f56;
+  --switch-on: var(--safe); --switch-off: var(--edge); --switch-knob: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0a1c26; --surface: #112834; --sunken: #0d222d; --line: #254553; --edge: #708f9c;
+    --ink: #e8f2f5; --soft: #a8bec8;
+    --primary: #a0d9df; --primary-hover: #bce6ea; --on-primary: #0a2a38; --road: #7ccad6;
+    --safe: #4fd3ae; --safe-strong: #68e6c2; --safe-soft: #103c35;
+    --info-strong: #a0d9df; --info-soft: #14394a;
+    --warn: #f0b04a; --warn-strong: #f5c677; --warn-soft: #3a2a0d;
+    --stop: #f19a8f; --stop-strong: #f6b1a8; --stop-soft: #40201c; --on-stop: #2a0f0c;
+    --band: #0d3143; --band-deep: #09222f; --on-band-soft: #b4d0d9; --focus: #68e6c2;
+    --logo-a: #ffffff; --logo-c: #a0d9df; --logo-b: #68e6c2; --logo-word: #ffffff;
+    --switch-knob: #0a2a38;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #0a1c26; --surface: #112834; --sunken: #0d222d; --line: #254553; --edge: #708f9c;
+  --ink: #e8f2f5; --soft: #a8bec8;
+  --primary: #a0d9df; --primary-hover: #bce6ea; --on-primary: #0a2a38; --road: #7ccad6;
+  --safe: #4fd3ae; --safe-strong: #68e6c2; --safe-soft: #103c35;
+  --info-strong: #a0d9df; --info-soft: #14394a;
+  --warn: #f0b04a; --warn-strong: #f5c677; --warn-soft: #3a2a0d;
+  --stop: #f19a8f; --stop-strong: #f6b1a8; --stop-soft: #40201c; --on-stop: #2a0f0c;
+  --band: #0d3143; --band-deep: #09222f; --on-band-soft: #b4d0d9; --focus: #68e6c2;
+  --logo-a: #ffffff; --logo-c: #a0d9df; --logo-b: #68e6c2; --logo-word: #ffffff;
+  --switch-knob: #0a2a38;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas); --color-surface: var(--surface); --color-sunken: var(--sunken);
+  --color-line: var(--line); --color-edge: var(--edge); --color-ink: var(--ink); --color-soft: var(--soft);
+  --color-primary: var(--primary); --color-on-primary: var(--on-primary); --color-road: var(--road);
+  --color-safe: var(--safe); --color-safe-strong: var(--safe-strong); --color-safe-soft: var(--safe-soft);
+  --color-info-strong: var(--info-strong); --color-info-soft: var(--info-soft);
+  --color-warn: var(--warn); --color-warn-strong: var(--warn-strong); --color-warn-soft: var(--warn-soft);
+  --color-stop: var(--stop); --color-stop-strong: var(--stop-strong); --color-stop-soft: var(--stop-soft);
+  --color-band: var(--band); --color-band-deep: var(--band-deep); --color-on-band: var(--on-band); --color-on-band-soft: var(--on-band-soft);
+  --color-safe-bright: var(--safe-bright); --color-sky: var(--sky);
+  --font-sans: "Overpass Variable", ui-sans-serif, system-ui, "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif;
+}
+
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 96px; overflow-wrap: break-word; }
+body { background: var(--canvas); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-weight: 700; line-height: 1.15; letter-spacing: -0.004em; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+::selection { background: var(--safe-soft); }
+.tabular { font-variant-numeric: tabular-nums; }
+.measure { max-width: 68ch; }
+
+/* Anything on the petrol band gets the reversed logo, switch and focus ring. */
+.band {
+  background: var(--band); color: var(--on-band);
+  --logo-a: #ffffff; --logo-c: #a0d9df; --logo-b: #68e6c2; --logo-word: #ffffff;
+  --switch-on: var(--safe-bright); --switch-off: rgba(255, 255, 255, .42); --switch-knob: #0b3043; --focus: #68e6c2;
+}
+.band .switch[aria-checked="false"] { --switch-knob: #ffffff; }
+
+.skip { position: fixed; left: 12px; top: -80px; z-index: 60; background: var(--surface); color: var(--ink); padding: 10px 16px; border-radius: 6px; font-weight: 600; }
+.skip:focus { top: 12px; }
+
+/* Links */
+.link { color: var(--road); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.link:hover { text-decoration-thickness: 2px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 9px 16px 7px; border: 1px solid transparent; border-radius: 6px; font-weight: 600; font-size: 15px; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: background-color .12s, border-color .12s, color .12s; }
+.btn svg { margin-top: -2px; flex: none; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
+.btn-primary:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--primary-hover); }
+.btn-quiet { background: var(--surface); border-color: var(--edge); color: var(--ink); }
+.btn-quiet:hover:not(:disabled):not([aria-disabled="true"]) { border-color: var(--primary); background: var(--sunken); }
+.btn-danger { background: var(--stop); color: var(--on-stop); }
+.btn-danger:hover:not(:disabled) { filter: brightness(.92); }
+.btn-danger-quiet { background: transparent; border-color: var(--stop); color: var(--stop-strong); }
+.btn-danger-quiet:hover:not(:disabled) { background: var(--stop-soft); }
+.btn-band { background: #ffffff; color: #0f3f56; }
+.btn-band:hover:not(:disabled):not([aria-disabled="true"]) { background: #dff1f1; }
+.btn-icon { padding: 0; width: 42px; }
+.btn-sm { min-height: 36px; padding: 7px 12px 5px; font-size: 14px; }
+.btn-sm.btn-icon { width: 36px; padding: 0; }
+@media (pointer: coarse) { .btn { min-height: 44px; } .btn-sm { min-height: 44px; } .btn-icon, .btn-sm.btn-icon { width: 44px; } }
+
+/* Fields. 16px text stops phones zooming in on focus. */
+.field { width: 100%; min-height: 44px; border: 1px solid var(--edge); background: var(--surface); border-radius: 6px; padding: 10px 12px 8px; color: var(--ink); font-size: 16px; line-height: 1.35; }
+.field:focus-visible { border-color: var(--primary); outline-offset: 0; }
+.field::placeholder { color: var(--soft); opacity: .85; }
+select.field { padding-top: 9px; }
+.label { display: block; font-size: 14px; font-weight: 600; }
+.label > .field, .label > .tokens { margin-top: 6px; font-weight: 400; }
+.hint { display: block; margin-top: 4px; font-size: 14px; line-height: 1.4; font-weight: 400; color: var(--soft); }
+.tokens { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; width: 100%; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 6px; background: var(--surface); }
+.tokens:focus-within { outline: 3px solid var(--focus); border-color: var(--primary); }
+.tokens input { flex: 1; min-width: 120px; min-height: 30px; padding: 2px 4px 0; background: transparent; font-size: 16px; outline: none; color: var(--ink); }
+.tokens input::placeholder { color: var(--soft); opacity: .85; }
+.token { display: inline-flex; align-items: center; gap: 2px; padding: 3px 2px 1px 9px; border-radius: 4px; background: var(--info-soft); color: var(--info-strong); font-size: 14px; font-weight: 600; }
+.token button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-top: -2px; cursor: pointer; border-radius: 3px; }
+.token button:hover { background: rgba(127, 127, 127, .22); }
+input[type="range"] { accent-color: var(--primary); }
+
+/* Switch */
+.switch { position: relative; display: inline-flex; flex: none; align-items: center; width: 46px; height: 26px; border-radius: 13px; background: var(--switch-off); cursor: pointer; transition: background-color .15s; }
+.switch::before { content: ""; position: absolute; inset: -9px -4px; }
+.switch::after { content: ""; position: absolute; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--switch-knob); transition: transform .15s; }
+.switch[aria-checked="true"] { background: var(--switch-on); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+.switch:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Lane markings: the dashed line a road would have. Used for section rules, never as decoration elsewhere. */
+
+/* Today: the three searches are stops on a road */
+.lane { position: relative; --road-bg: var(--band-deep); }
+.lane-road, .lane-travelled, .lane-now { display: none; }
+.lane-stops { position: relative; display: grid; }
+.lane-stops::before { content: ""; position: absolute; left: 19px; top: 10px; bottom: 10px; width: 2px; background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, .5) 0 12px, transparent 12px 22px); }
+.lane-stop { position: relative; display: grid; grid-template-columns: 40px 1fr auto; column-gap: 14px; align-items: center; padding: 10px 0; }
+.lane-marker { grid-row: span 2; position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--on-band-soft); background: var(--band); color: var(--on-band); }
+.lane-marker.is-done { background: var(--safe-bright); border-color: var(--safe-bright); color: #0b3043; }
+.lane-marker.is-bad { background: #ffdad5; border-color: #ffdad5; color: #8f1d17; }
+.lane-marker.is-off { border-style: dashed; color: var(--on-band-soft); }
+.lane-marker.is-busy { background: #ffffff; border-color: #ffffff; color: #0b3043; }
+.lane-time { font-size: 19px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.lane-state { grid-column: 2; font-size: 14px; color: var(--on-band-soft); }
+.lane-stop .switch { grid-column: 3; grid-row: 1 / span 2; }
+.lane-stop.is-disabled .lane-time { color: var(--on-band-soft); text-decoration: line-through; text-decoration-thickness: 1px; }
+.lane-error { grid-column: 2 / -1; font-size: 13px; color: #ffdad5; }
+
+@media (min-width: 640px) {
+  .lane { height: 170px; }
+  .lane-road, .lane-travelled, .lane-now { display: block; }
+  .lane-road { position: absolute; left: -100vw; right: -100vw; top: 4px; height: 60px; background: var(--road-bg); }
+  .lane-road::before { content: ""; position: absolute; left: 0; right: 0; top: 29px; height: 2px; background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, .55) 0 26px, transparent 26px 46px); }
+  .lane-travelled { position: absolute; left: -100vw; top: 60px; height: 4px; width: calc(100vw + var(--now)); background: var(--safe-bright); transform-origin: left; animation: sweep .9s cubic-bezier(.2, .7, .2, 1) both; }
+  .lane-now { position: absolute; top: 23px; left: var(--now); transform: translateX(-50%); padding: 1px 8px 0; border-radius: 4px; background: #ffffff; color: #0b3043; font-size: 13px; font-weight: 700; line-height: 20px; }
+  .lane-stops { display: block; height: 100%; }
+  .lane-stops::before { display: none; }
+  .lane-stop { position: absolute; top: 14px; left: var(--pos); display: flex; flex-direction: column; align-items: center; gap: 0; padding: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+  .lane-marker { margin-bottom: 18px; }
+  .lane-state { margin-bottom: 8px; }
+  .lane-error { white-space: normal; width: 170px; margin-top: 4px; }
+}
+@keyframes sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Stages on an application: chevron signs along one road */
+.stages { display: flex; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.stages::-webkit-scrollbar { display: none; }
+.stage { --notch: 13px; position: relative; flex: 1 0 auto; min-width: 104px; display: block; padding: 9px calc(var(--notch) + 12px) 7px calc(var(--notch) + 14px); margin-right: calc(var(--notch) * -1 + 4px); background: var(--sunken); color: var(--ink); clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% 50%, calc(100% - var(--notch)) 100%, 0 100%, var(--notch) 50%); }
+.stage:first-child { padding-left: 14px; clip-path: polygon(0 0, calc(100% - var(--notch)) 0, 100% 50%, calc(100% - var(--notch)) 100%, 0 100%); border-radius: 6px 0 0 6px; }
+.stage:last-child { margin-right: 0; }
+.stage:hover { background: var(--line); }
+.stage[aria-current="true"] { background: var(--primary); color: var(--on-primary); }
+.stage:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--focus); }
+.stage b { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stage span { display: block; font-size: 13px; white-space: nowrap; }
+
+/* Chips */
+.chips { display: flex; align-items: center; gap: 6px; }
+.chip { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px 4px; border: 1px solid var(--edge); border-radius: 18px; background: var(--surface); font-size: 14px; white-space: nowrap; }
+.chip:hover { border-color: var(--primary); background: var(--sunken); }
+.chip[aria-current="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+@media (pointer: coarse) { .chip { min-height: 44px; border-radius: 22px; } }
+
+/* Dialogs: centred on a desk, a bottom sheet on a phone */
+.sheet { margin: auto; width: min(92vw, 460px); max-height: 88dvh; padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); overflow: auto; }
+.sheet.sheet-wide { width: min(94vw, 640px); }
+.sheet::backdrop { background: rgba(5, 22, 31, .58); }
+@media (max-width: 639px) { .sheet, .sheet.sheet-wide { margin: auto 0 0; width: 100%; max-width: 100%; border-radius: 14px 14px 0 0; padding-bottom: calc(22px + env(safe-area-inset-bottom)); } }
+
+/* Toasts sit above the phone tab bar */
+.toasts { position: fixed; z-index: 70; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); display: grid; gap: 8px; pointer-events: none; }
+@media (min-width: 1024px) { .toasts { left: 24px; right: auto; bottom: 24px; width: 380px; } }
+.toast { pointer-events: auto; display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px 9px; border-radius: 8px; background: var(--ink); color: var(--canvas); font-size: 15px; line-height: 1.35; }
+.toast svg { flex: none; margin-top: 1px; }
+
+/* Job list rows */
+.job { display: grid; grid-template-columns: 74px minmax(0, 1fr); column-gap: 14px; padding: 18px 0; }
+.job + .job { border-top: 1px solid var(--line); }
+@media (min-width: 640px) { .job { grid-template-columns: 112px minmax(0, 1fr); column-gap: 20px; padding: 22px 0; } }
+
+/* Skeletons while a page loads */
+.skel { border-radius: 6px; background: var(--sunken); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+
+/* Sticky bars */
+.savebar { position: sticky; bottom: 0; z-index: 15; }
+@media (max-width: 1023px) { .savebar { bottom: calc(64px + env(safe-area-inset-bottom)); } }
+.tabbar-space { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+@media (min-width: 1024px) { .tabbar-space { padding-bottom: 0; } }
+
+@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

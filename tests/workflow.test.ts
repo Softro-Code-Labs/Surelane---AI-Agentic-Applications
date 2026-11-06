@@ -1,38 +1,30 @@
-import { SMTPServer } from 'smtp-server';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { one, q } from '@/lib/db';
 import { executeSearch } from '@/lib/search/run';
 import { RECOMMENDABLE } from '@/lib/settings';
 import { tick, workDue } from '@/worker/tick';
+import { API_KEY, fakeResend, type Sent } from './fake-resend';
 import { jobDescription, resetDb, source, withCv } from './helpers';
 
-let inbox: { to: string; body: string }[] = [];
-let server: SMTPServer;
-let port = 0;
-const env = () => ({ SMTP_HOST: '127.0.0.1', SMTP_PORT: String(port), SMTP_USER: 'u', SMTP_PASS: 'p', SMTP_INSECURE_LOCAL: '1', SMTP_FROM: 'agent@example.com', APP_URL: 'https://app.example' });
-
-beforeAll(async () => {
-  server = new SMTPServer({
-    authOptional: true, disabledCommands: ['STARTTLS'], onAuth: (_a, _s, cb) => cb(null, { user: 'u' }),
-    onData(stream, session, cb) { let body = ''; stream.on('data', (d) => (body += d)); stream.on('end', () => { inbox.push({ to: session.envelope.rcptTo[0]!.address, body }); cb(); }); },
-  });
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
-  port = (server.server.address() as any).port;
-});
-afterAll(() => server.close());
+let inbox: Sent[] = [];
+const env = () => ({ RESEND_API_KEY: API_KEY, EMAIL_FROM: 'Surelane <alerts@example.com>', APP_URL: 'https://app.example' });
 
 const at8 = () => new Date('2026-11-04T02:31:00Z'); // 08:01 Colombo
 const deps = (sources: any[], over = {}) => ({ sources, provider: null, env: env(), now: at8, sleep: async () => {}, log: () => {}, fetch: (async () => new Response('', { status: 404 })) as any, ...over });
 const counts = async () => (await one(`SELECT count(*)::int n FROM search_runs`))!.n;
 
 beforeEach(async () => {
-  inbox = [];
+  const resend = fakeResend(['example.com']);
+  inbox = resend.inbox;
+  vi.stubGlobal('fetch', resend.handler);
   await resetDb();
   await q(`UPDATE settings SET email_recipient='me@example.com'`);
 });
 
+afterEach(() => { vi.unstubAllGlobals(); });
+
 describe('scheduled search end to end', () => {
-  it('searches, saves, ranks and emails real SMTP', async () => {
+  it('searches, saves, ranks and emails through Resend', async () => {
     await withCv();
     await tick(deps([source('a', [{ title: 'Senior Software Engineer' }, { title: 'Registered Nurse', description: 'Requirements\n• Patient care, nursing' }])]));
     const run = await one(`SELECT * FROM search_runs`);
@@ -43,7 +35,7 @@ describe('scheduled search end to end', () => {
     expect(jobs[0].notified_at).not.toBeNull();
     expect(inbox).toHaveLength(1);
     expect(inbox[0]!.to).toBe('me@example.com');
-    expect(inbox[0]!.body.replace(/=\r?\n/g, '')).toContain('Senior Software Engineer');
+    expect(inbox[0]!.body).toContain('Senior Software Engineer');
     expect(await q(`SELECT * FROM notifications WHERE status='sent' AND kind='matches'`)).toHaveLength(1);
     expect(await q(`SELECT status FROM search_run_sources`)).toEqual([{ status: 'success' }]);
   });
@@ -170,7 +162,7 @@ describe('master switch and email control', () => {
 
   it('keeps a failed email for the next run', async () => {
     await withCv();
-    await tick(deps([source('a', [{ title: 'Senior Software Engineer' }])], { env: { ...env(), SMTP_PORT: '1' } }));
+    await tick(deps([source('a', [{ title: 'Senior Software Engineer' }])], { env: { ...env(), RESEND_API_KEY: 're_wrong_key' } }));
     expect(await one(`SELECT status FROM notifications`)).toMatchObject({ status: 'failed' });
     expect((await one(`SELECT notified_at FROM jobs`)).notified_at).toBeNull();
     await tick(deps([source('a', [{ title: 'Senior Software Engineer' }])], { now: () => new Date('2026-11-04T07:01:00Z') }));
@@ -180,7 +172,7 @@ describe('master switch and email control', () => {
   it('escapes hostile job content in email', async () => {
     await withCv();
     await tick(deps([source('a', [{ title: 'Software Engineer <script>alert(1)</script>' }])]));
-    const html = inbox[0]!.body.replace(/=\r?\n/g, '').split('text/html')[1]!;
+    const html = inbox[0]!.html;
     expect(html).not.toContain('<script>alert');
     expect(html).toContain('&lt;script&gt;');
   });
@@ -350,7 +342,7 @@ describe('AI provider', () => {
     await withCv();
     await tick(deps([source('a', [{ title: 'Senior Software Engineer' }])], {
       provider: fake('{"score": 90, "explanation": "A good fit for your payments work overall."}'),
-      env: { ...env(), AI_PROVIDER: 'ollama', AI_MAX_JOBS_PER_RUN: '', AI_TIME_BUDGET_SECONDS: '', SMTP_FROM: '' },
+      env: { ...env(), AI_PROVIDER: 'ollama', AI_MAX_JOBS_PER_RUN: '', AI_TIME_BUDGET_SECONDS: '', EMAIL_FROM: '' },
     }));
     expect(await one(`SELECT scored_by FROM jobs`)).toEqual({ scored_by: 'ollama:test' });
     expect(inbox).toHaveLength(1);

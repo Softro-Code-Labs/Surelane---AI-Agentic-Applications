@@ -32,11 +32,8 @@ jobs:
       DATABASE_CA_CERT: ${{ secrets.DATABASE_CA_CERT }}
       APP_SECRET: ${{ secrets.APP_SECRET }}
       APP_URL: ${{ vars.APP_URL }}
-      SMTP_HOST: ${{ vars.SMTP_HOST }}
-      SMTP_PORT: ${{ vars.SMTP_PORT }}
-      SMTP_USER: ${{ secrets.SMTP_USER }}
-      SMTP_PASS: ${{ secrets.SMTP_PASS }}
-      SMTP_FROM: ${{ vars.SMTP_FROM }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
       AI_PROVIDER: ${{ vars.AI_PROVIDER }}
       OLLAMA_MODEL: ${{ vars.OLLAMA_MODEL || 'gemma3:1b' }}
       AI_MAX_JOBS_PER_RUN: ${{ vars.AI_MAX_JOBS_PER_RUN }}

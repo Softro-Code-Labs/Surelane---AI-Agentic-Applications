@@ -3,13 +3,14 @@ import { cookies } from 'next/headers';
 import { SettingSwitch, SignOut } from '@/components/controls';
 import { SettingsForm, ThemeControl } from '@/components/Forms';
 import { Page, PageHead, SettingGroup } from '@/components/ui';
+import { lastEmailProblem } from '@/lib/notify/email';
 import { SLOTS } from '@/lib/schedule';
 import { getSettings } from '@/lib/settings';
 
 export const metadata: Metadata = { title: 'Search settings' };
 
 export default async function SettingsPage() {
-  const s = await getSettings();
+  const [s, emailProblem] = await Promise.all([getSettings(), lastEmailProblem()]);
   const plain = JSON.parse(JSON.stringify(s));
   const theme = (await cookies()).get('theme')?.value;
   return (
@@ -27,7 +28,7 @@ export default async function SettingsPage() {
           {SLOTS.map((slot) => <SettingSwitch key={slot.key} field={slot.field} initial={Boolean(s[slot.field as keyof typeof s])} label={slot.label} />)}
         </div>
       </SettingGroup>
-      <SettingsForm s={plain} />
+      <SettingsForm s={plain} emailProblem={emailProblem} />
       <SettingGroup id="appearance" title="Appearance"><ThemeControl initial={theme} /></SettingGroup>
       <SettingGroup id="account" title="Account"><SignOut className="btn btn-quiet" /></SettingGroup>
     </Page>

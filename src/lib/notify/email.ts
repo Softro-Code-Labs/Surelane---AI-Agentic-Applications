@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { randomUUID } from 'node:crypto';
 import { q, one } from '../db';
 import { formatColombo } from '../schedule';
 import { RECOMMENDABLE, getSettings, scopeSql } from '../settings';
@@ -7,18 +7,50 @@ import { escapeHtml as e, truncate } from '../text';
 type Env = Record<string, string | undefined>;
 type Opts = { env?: Env; now?: () => Date };
 
-export function smtpConfigured(env: Env = process.env) {
-  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+type Mail = { subject: string; html: string; text: string };
+
+const RESEND_URL = 'https://api.resend.com/emails';
+// Resend's shared test sender. It only reaches the address on your Resend account,
+// which suits one person. Set EMAIL_FROM once you have verified a domain.
+const TEST_SENDER = 'Surelane <onboarding@resend.dev>';
+
+export function emailConfigured(env: Env = process.env) {
+  return Boolean(env.RESEND_API_KEY);
 }
 
-function transport(env: Env) {
-  const port = Number(env.SMTP_PORT || 465);
-  return nodemailer.createTransport({
-    host: env.SMTP_HOST, port, secure: port === 465,
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
-    ...(env.SMTP_INSECURE_LOCAL === '1' ? { tls: { rejectUnauthorized: false }, ignoreTLS: true, secure: false } : {}),
-  } as any);
+/** `retry` says whether trying again could help. A wrong key stays wrong. */
+class EmailError extends Error {
+  constructor(message: string, readonly retry = false) { super(message); }
 }
+
+/** Turns Resend's replies into what happened and what to do about it. */
+function explain(status: number, name = '', message = '') {
+  if (/own email address/i.test(message)) return new EmailError("Resend's test sender can only reach the email on your Resend account. Use that address in Send alerts to, or verify a domain in Resend.");
+  if (/not verified/i.test(message)) return new EmailError('The domain in EMAIL_FROM is not verified. Verify it in Resend, or leave EMAIL_FROM empty to use the test sender.');
+  if (status === 401 || /api.?key/i.test(`${name} ${message}`)) return new EmailError('Resend did not accept the API key. Check RESEND_API_KEY in Vercel and in GitHub.');
+  if (name === 'daily_quota_exceeded') return new EmailError("You have reached Resend's daily email limit. It resets at 5:30 AM Sri Lanka time.");
+  if (name === 'monthly_quota_exceeded') return new EmailError("You have reached Resend's monthly email limit.");
+  if (status === 429 || status >= 500 || name === 'concurrent_idempotent_requests') return new EmailError('Resend is busy or unavailable right now. Try again shortly.', true);
+  return new EmailError(`Resend refused this email: ${message || `error ${status}`}`);
+}
+
+/** Pass the same `onceOnly` key on a retry, and Resend won't send that email twice. */
+async function send(env: Env, to: string, mail: Mail, onceOnly?: string) {
+  const res = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'User-Agent': 'Surelane/1.0',
+      ...(onceOnly ? { 'Idempotency-Key': onceOnly } : {}),
+    },
+    body: JSON.stringify({ from: env.EMAIL_FROM?.trim() || TEST_SENDER, to, ...mail }),
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => { throw new EmailError('Surelane could not reach Resend. Try again shortly.', true); });
+  if (res.ok) return;
+  const body = (await res.json().catch(() => ({}))) as { name?: string; message?: string };
+  throw explain(res.status, body.name, body.message);
+}
+
+const reason = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 export type EmailJob = {
   id: string; title: string; company: string; location: string; country: string | null; market: string; work_mode: string;
@@ -84,14 +116,20 @@ async function log(runId: string | null, kind: string, recipient: string, subjec
     [runId, kind, recipient, subject, count, status, error, now]);
 }
 
+/** Why the most recent email failed, or null if it went out. A later success clears it. */
+export async function lastEmailProblem() {
+  const last = await one<{ status: string; error: string | null }>(`SELECT status, error FROM notifications ORDER BY created_at DESC, id DESC LIMIT 1`);
+  return last?.status === 'failed' ? last.error ?? 'Resend did not accept it.' : null;
+}
+
 export async function sendTestEmail(recipient: string, env: Env = process.env) {
   const subject = 'Surelane can reach this inbox';
   const html = shell(subject, `<p style="font-size:14px;color:${INK}">Email alerts are working.</p>`);
   try {
-    await transport(env).sendMail({ from: env.SMTP_FROM || env.SMTP_USER, to: recipient, subject, html, text: subject });
+    await send(env, recipient, { subject, html, text: subject });
     await log(null, 'test', recipient, subject, 0, 'sent', null, new Date());
   } catch (err) {
-    await log(null, 'test', recipient, subject, 0, 'failed', String(err), new Date());
+    await log(null, 'test', recipient, subject, 0, 'failed', reason(err), new Date());
     throw err;
   }
 }
@@ -99,7 +137,7 @@ export async function sendTestEmail(recipient: string, env: Env = process.env) {
 /** Every rule that can stop an email lives here, and is read at the moment of sending. */
 export async function sendRunEmail(runId: string, { env = process.env, now = () => new Date() }: Opts = {}): Promise<'sent' | 'skipped' | 'failed'> {
   const s = await getSettings();
-  if (!s.agent_enabled || !s.email_enabled || !s.email_recipient || !smtpConfigured(env)) return 'skipped';
+  if (!s.agent_enabled || !s.email_enabled || !s.email_recipient) return 'skipped';
 
   const jobs = await q<EmailJob>(
     `SELECT j.* FROM jobs j WHERE ${RECOMMENDABLE} ${scopeSql(s)}
@@ -107,35 +145,33 @@ export async function sendRunEmail(runId: string, { env = process.env, now = () 
      ORDER BY j.score DESC LIMIT 25`, [s.min_score]);
   const appUrl = env.APP_URL?.replace(/\/$/, '');
 
-  if (!jobs.length) {
-    if (s.email_no_results === 'silent') return 'skipped';
-    const sources = await q(`SELECT label, status FROM search_run_sources WHERE run_id = $1`, [runId]);
-    const mail = noResultsEmail(sources, appUrl);
-    try {
-      await transport(env).sendMail({ from: env.SMTP_FROM || env.SMTP_USER, to: s.email_recipient, ...mail });
-      await log(runId, 'no_results', s.email_recipient, mail.subject, 0, 'sent', null, now());
-      return 'sent';
-    } catch (err) {
-      await log(runId, 'no_results', s.email_recipient, mail.subject, 0, 'failed', String(err), now());
-      return 'failed';
-    }
+  if (!jobs.length && s.email_no_results === 'silent') return 'skipped';
+
+  const kind = jobs.length ? 'matches' : 'no_results';
+  const mail = jobs.length ? matchesEmail(jobs, appUrl)
+    : noResultsEmail(await q(`SELECT label, status FROM search_run_sources WHERE run_id = $1`, [runId]), appUrl);
+  // Logged, not skipped: the key can be in Vercel but missing from GitHub, where this runs.
+  if (!emailConfigured(env)) {
+    await log(runId, kind, s.email_recipient, mail.subject, jobs.length, 'failed', 'RESEND_API_KEY is not set where searches run. Add it to your GitHub secrets.', now());
+    return 'failed';
   }
 
-  const mail = matchesEmail(jobs, appUrl);
+  const onceOnly = randomUUID();
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     const live = await one<{ agent_enabled: boolean }>('SELECT agent_enabled FROM settings WHERE id = 1');
     if (!live?.agent_enabled) return 'skipped';
     try {
-      await transport(env).sendMail({ from: env.SMTP_FROM || env.SMTP_USER, to: s.email_recipient, ...mail });
-      await q('UPDATE jobs SET notified_at = $2 WHERE id = ANY($1::bigint[])', [jobs.map((j) => j.id), now()]);
-      await log(runId, 'matches', s.email_recipient, mail.subject, jobs.length, 'sent', null, now());
+      await send(env, s.email_recipient, mail, onceOnly);
+      if (jobs.length) await q('UPDATE jobs SET notified_at = $2 WHERE id = ANY($1::bigint[])', [jobs.map((j) => j.id), now()]);
+      await log(runId, kind, s.email_recipient, mail.subject, jobs.length, 'sent', null, now());
       return 'sent';
     } catch (err) {
       lastError = err;
+      if (err instanceof EmailError && !err.retry) break;
     }
   }
   // notified_at stays empty, so these jobs go out with the next scheduled search.
-  await log(runId, 'matches', s.email_recipient, mail.subject, jobs.length, 'failed', String(lastError), now());
+  await log(runId, kind, s.email_recipient, mail.subject, jobs.length, 'failed', reason(lastError), now());
   return 'failed';
 }

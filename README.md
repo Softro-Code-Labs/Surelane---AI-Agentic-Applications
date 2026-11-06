@@ -2,7 +2,7 @@
 
 Your clear, safe lane to real jobs. Upload your CV once, and Surelane searches permitted job sources at 8:00 AM, 12:30 PM and 5:00 PM Sri Lanka time, checks that vacancies are still open, ranks them against your CV, and emails you the new ones. It keeps running when your computer is off.
 
-It costs nothing to run. GitHub and cron-job.org are confirmed to work with no card. Supabase's and Vercel's pricing pages don't state a card rule outright, so if either asks for one at sign-up, stop rather than enter it. **Do not add a card to GitHub:** without one, going over the free allowance stops the runs instead of charging you.
+It costs nothing to run. GitHub and cron-job.org are confirmed to work with no card. The pricing pages for Supabase, Vercel and Resend don't state a card rule outright, so if any of them asks for one at sign-up, stop rather than enter it. **Do not add a card to GitHub:** without one, going over the free allowance stops the runs instead of charging you.
 
 ## Find your way around
 
@@ -18,7 +18,14 @@ On a phone, these five sit in a tab bar at the bottom, and you can add Surelane 
 
 ## Already running the earlier version?
 
-Replace the code and redeploy. Nothing else changes: the database, your data, every environment variable, the sign-in and the GitHub workflow all stay as they are. The design and navigation are new, and every page keeps its old address, so saved links still work.
+Replace the code, then move email from Gmail to Resend:
+
+1. Follow step 4 to get a `RESEND_API_KEY`.
+2. Add it to your GitHub secrets and to Vercel. It has to be in both: GitHub sends the job emails, and Vercel sends the test email.
+3. Redeploy, and use **Send test email** to check it.
+4. Delete the old `SMTP_*` values, and remove the app password from your Google account. Nothing uses them now.
+
+Your database, your data, the sign-in and the page addresses don't change. The design and navigation are new, and every page keeps its old address, so saved links still work.
 
 ## What runs where
 
@@ -29,7 +36,7 @@ Replace the code and redeploy. Nothing else changes: the database, your data, ev
 | Searches | GitHub Actions, private repo | About 2,000 minutes a month ($12 of included compute at Linux rates). Runs stop, rather than bill you, if you use it all and have no card on file. |
 | Exact timing | cron-job.org | Free. 30-second timeout. A job is switched off after more than 25 failures in a row. |
 | Local AI | Ollama, inside GitHub's runner | Runs on 2 CPU cores, so it is slow. See Local AI below. |
-| Email | Gmail with an app password | About 500 emails a day, far more than this app sends. |
+| Email | Resend Free | 3,000 emails a month and 100 a day, far more than this app sends. Going over the limit stops sending, rather than charging you. |
 
 The app has no public sign-up: the first account closes registration, and that account needs your `SETUP_CODE`.
 
@@ -43,7 +50,7 @@ The app has no public sign-up: the first account closes registration, and that a
 
 ## Setup, about 45 minutes
 
-You need free accounts on GitHub, Vercel, Supabase and cron-job.org, plus a Gmail account.
+You need free accounts on GitHub, Vercel, Supabase, cron-job.org and Resend.
 
 ### 1. Put the code on GitHub
 
@@ -65,17 +72,22 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 These are `APP_SECRET`, `CRON_SECRET` and `SETUP_CODE`. Save them. If you lose `APP_SECRET`, you need to upload your CV again.
 
-### 4. Set up Gmail
+### 4. Set up Resend
 
-Turn on 2-Step Verification in your Google account, then create an **App password**. This 16-character value is your `SMTP_PASS`.
+1. Sign up at [resend.com](https://resend.com) **with the email address where you want job alerts**. This matters: until you verify your own domain, Resend only delivers to the address on your account.
+2. Open **API Keys** and create a key with **Sending access**. This is your `RESEND_API_KEY`. Save it somewhere safe.
+
+That's all you need. Emails come from Resend's test sender, `onboarding@resend.dev`. It's a shared testing address, so check your spam folder the first time.
+
+**Later, with your own domain:** add it under **Domains** in Resend, add the DNS records it gives you, and once it's verified, set `EMAIL_FROM` to something like `Surelane <alerts@yourdomain.com>`. You can then send to any address. A domain is a paid purchase, which is why the free setup leaves it out.
 
 ### 5. Add settings to GitHub
 
 In your repository, open **Settings > Secrets and variables > Actions**.
 
-Secrets: `DATABASE_URL`, `APP_SECRET`, `SMTP_USER` (your Gmail address), `SMTP_PASS`.
+Secrets: `DATABASE_URL`, `APP_SECRET`, `RESEND_API_KEY`.
 
-Variables: `SMTP_HOST` = `smtp.gmail.com`, `SMTP_PORT` = `465`, `SMTP_FROM` = your Gmail address, `APP_URL` = your Vercel address (add this after step 7), and `AI_PROVIDER` = `ollama` if you want local AI, or leave it out at first.
+Variables: `APP_URL` = your Vercel address (add this after step 7), `AI_PROVIDER` = `ollama` if you want local AI, or leave it out at first, and `EMAIL_FROM` only if you have verified a domain.
 
 ### 6. Allow Search now to start the worker
 
@@ -84,7 +96,7 @@ In GitHub, create a **fine-grained personal access token** for this repository o
 ### 7. Deploy the dashboard
 
 1. In Vercel, import the repository.
-2. Add these environment variables: `DATABASE_URL`, `APP_SECRET`, `SETUP_CODE`, `CRON_SECRET`, `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPO` (your-name/your-repo), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `APP_URL`, and `AI_PROVIDER` if you set it in step 5.
+2. Add these environment variables: `DATABASE_URL`, `APP_SECRET`, `SETUP_CODE`, `CRON_SECRET`, `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPO` (your-name/your-repo), `RESEND_API_KEY`, `APP_URL`, and `EMAIL_FROM` and `AI_PROVIDER` if you set them in step 5.
 3. Deploy, then add the address to GitHub as the `APP_URL` variable.
 
 ### 8. Create the tables
@@ -105,7 +117,7 @@ GitHub's timer can run late, and in busy periods it can drop runs. cron-job.org 
 
 1. Open your Vercel address and create your account, using `SETUP_CODE`.
 2. Upload your CV and check that the profile looks right.
-3. In **Search setup > Search settings**, send a test email, and set your preferences.
+3. In **Search setup > Search settings**, enter the email you used for Resend under **Send alerts to**, save, send a test email, and set your preferences.
 4. Click **Search now**, and open **Search setup > Search history** when it finishes.
 
 ### 11. Confirm the live sources
@@ -164,7 +176,7 @@ If the model cannot start, the search still runs on the built-in engine, and eve
 
 **Agent switch.** Off means no scheduled searches, no Search now, and no job emails. A search already running stops at its next step and sends nothing. Daily cleanup keeps running while the agent is off, because it is maintenance, not a search.
 
-**Emails.** Sent only after scheduled searches. Jobs found by Search now go out with the next scheduled email. No job is emailed twice.
+**Emails.** Sent only after scheduled searches. Jobs found by Search now go out with the next scheduled email. No job is emailed twice. If an email fails, its jobs wait for the next scheduled email, **Needs you** on Today says so, and the reason appears under Email in Search settings. Emails go through Resend, which lists 30-day data retention on its free plan. They carry job matches and skill notes, never your CV.
 
 **Active vacancies.** A job is only recommended if all of these hold:
 - Its deadline has not passed, and it isn't marked closed, filled or expired.
@@ -186,7 +198,8 @@ The free setup above is for one person's own use. Selling it needs more:
 - **Accounts:** the app has a single owner. Selling it needs multi-user accounts, billing and data separation.
 - **Personal data:** the main parts of Sri Lanka's Personal Data Protection Act are due to start on 1 January 2027. CVs are personal data, so take legal advice.
 - **Job sources:** re-read every source's terms for commercial use, and get permission where needed. Some of these allow personal use only, and page reading that suits one person may not suit a business.
-- **Email and AI:** use a proper email service, and hosting with enough capacity for local AI.
+- **Email:** verify your own domain in Resend, because the test sender only reaches your own address. The free plan's 100 emails a day would be shared by all your customers, so expect to need a paid plan. Pro was $20 a month for 50,000 emails when this was written.
+- **AI:** use hosting with enough capacity for local AI.
 
 ## Running it yourself instead
 
@@ -207,7 +220,7 @@ TEST_DATABASE_URL=postgres://... npm test    # needs a real Postgres
 npm run typecheck
 ```
 
-`tests/e2e/fixture-worker.ts` and `tests/e2e/net-stub.cjs` use labelled fake listings and websites for testing only. The application never imports them.
+`tests/e2e/fixture-worker.ts`, `tests/e2e/net-stub.cjs` and `tests/fake-resend.ts` use labelled fake listings, websites and email for testing only. The application never imports them.
 
 ### Design system
 
@@ -227,7 +240,9 @@ Shared parts live in `src/components`: `ui.tsx` for layout and labels, `controls
 |---|---|
 | Missed in Search history | Check that cron-job.org is active and the GitHub workflow is enabled. |
 | A source shows Failed | Read the error in Search history. A provider may have changed its format. |
-| Nothing arrives by email | Use Send test email. Check `SMTP_*` in GitHub, not just Vercel. |
+| Nothing arrives by email | Check **Needs you** on Today, then look under Email in Search settings for the reason. Use Send test email, and check your spam folder. |
+| Send test email works, but job emails don't | `RESEND_API_KEY` is in Vercel but not in GitHub. It has to be in both. |
+| Resend's test sender can only reach the email on your Resend account | **Send alerts to** doesn't match the address you signed up to Resend with. Change it, or verify a domain. |
 | Queued never finishes | `GITHUB_DISPATCH_TOKEN` or `GITHUB_REPO` is wrong, so the search waits for the next trigger. |
 | This page could not load | Choose Try again. If it keeps happening, your Supabase project may be paused, so restore it. Check you used the pooler string. |
 | No readable text in your CV | It is a scanned image. Export a text PDF or DOCX. |

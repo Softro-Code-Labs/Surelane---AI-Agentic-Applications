@@ -7,7 +7,7 @@ const csp = [
 ].join('; ');
 
 const config: NextConfig = {
-  serverExternalPackages: ['pg', 'unpdf', 'mammoth', 'nodemailer'],
+  serverExternalPackages: ['pg', 'unpdf', 'mammoth'],
   poweredByHeader: false,
   async headers() {
     // The CV preview route sets its own, stricter policy.

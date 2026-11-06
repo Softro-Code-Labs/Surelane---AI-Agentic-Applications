@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { api } from './controls';
 import { ConfirmButton, useDialog, useToast } from './feedback';
-import { SettingGroup } from './ui';
+import { Notice, SettingGroup } from './ui';
 
 const ACCEPT = '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -141,7 +141,7 @@ function Group({ id, title, hint, children }: { id: string; title: string; hint?
   return <SettingGroup id={id} title={title} hint={hint}><div className="grid gap-4 sm:grid-cols-2">{children}</div></SettingGroup>;
 }
 
-export function SettingsForm({ s }: { s: any }) {
+export function SettingsForm({ s, emailProblem }: { s: any; emailProblem: string | null }) {
   const router = useRouter();
   const toast = useToast();
   const from = (x: any): Values => ({
@@ -174,6 +174,7 @@ export function SettingsForm({ s }: { s: any }) {
   const testMail = async () => {
     try { const r = await api('/api/email/test'); toast('ok', `Test email sent to ${r.recipient}.`); }
     catch (e) { toast('bad', e instanceof Error ? e.message : 'The test email failed.'); }
+    router.refresh();
   };
   return (
     <>
@@ -199,7 +200,8 @@ export function SettingsForm({ s }: { s: any }) {
       </Group>
 
       <Group id="email" title="Email" hint="Sent after scheduled searches, never while the agent is off.">
-        <label className="label sm:col-span-2">Send alerts to<input type="email" autoComplete="email" className="field" value={v.email_recipient} onChange={pick('email_recipient')} /></label>
+        {emailProblem && <div className="sm:col-span-2"><Notice tone="warn"><b>The last email could not be sent.</b> {emailProblem}</Notice></div>}
+        <label className="label sm:col-span-2">Send alerts to<input type="email" autoComplete="email" className="field" value={v.email_recipient} onChange={pick('email_recipient')} /><span className="hint">Until you verify a domain in Resend, use the email you signed up to Resend with.</span></label>
         <label className="label">Which matches
           <select className="field" value={v.email_mode} onChange={pick('email_mode')}><option value="all">All matches above my minimum</option><option value="strong">Strong matches only</option></select>
         </label>

@@ -9,6 +9,7 @@ import { one, q } from '@/lib/db';
 import { recommended } from '@/lib/jobs';
 import { RECOMMENDABLE, getCv, getSettings, scopeSql } from '@/lib/settings';
 import { SLOTS, atColombo, colomboDate, formatColombo, nextSlot } from '@/lib/schedule';
+import { lastEmailProblem } from '@/lib/notify/email';
 import { plural } from '@/lib/plural';
 
 export const metadata: Metadata = { title: 'Today' };
@@ -64,6 +65,7 @@ export default async function Today() {
   const closing = Number((await one<{ n: string }>(`SELECT count(*) n FROM applications WHERE status IN ('Saved','Interested') AND deadline >= now() AND deadline < now() + interval '7 days'`))!.n);
   const unreadable = Number((await one<{ n: string }>(`SELECT count(*) n FROM career_pages WHERE enabled AND last_status IN ('not_allowed','needs_browser','error')`))!.n);
   const last = await one<{ started_at: Date; status: string }>(`SELECT started_at, status FROM search_runs WHERE status NOT IN ('missed','running') ORDER BY started_at DESC LIMIT 1`);
+  const emailProblem = await lastEmailProblem();
   const top = await recommended(s, {}, 3);
   const next = nextSlot(now, s);
 
@@ -104,11 +106,12 @@ export default async function Today() {
           <div className="grid gap-x-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr]">
             <div className="lg:col-start-2 lg:row-start-1">
               <Section title="Needs you">
-                {(strong > 0 || closing > 0 || unreadable > 0 || lastBad) ? (
+                {(strong > 0 || closing > 0 || unreadable > 0 || lastBad || emailProblem) ? (
                   <ul className="-mt-2 divide-y divide-line">
                     {closing > 0 && <Need href="/tracker" tone="look">{plural(closing, 'saved job closes', 'saved jobs close')} within 7 days</Need>}
                     {strong > 0 && <Need href="/jobs?tier=Strong" tone="do">Review {plural(strong, 'strong match', 'strong matches')}</Need>}
                     {lastBad && <Need href="/history" tone="look">The last search had a problem</Need>}
+                    {emailProblem && <Need href="/settings#email" tone="look">The last email could not be sent</Need>}
                     {unreadable > 0 && <Need href="/careers" tone="look">{plural(unreadable, 'career page', 'career pages')} can&apos;t be read</Need>}
                   </ul>
                 ) : <p className="text-soft">Nothing right now. Surelane keeps searching for you.</p>}

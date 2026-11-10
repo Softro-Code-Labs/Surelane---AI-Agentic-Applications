@@ -1,7 +1,7 @@
 // Calls every real source once and reports what came back. Writes nothing.
 import { parseEntry } from '../src/lib/sources/career';
 import { buildSources } from '../src/lib/sources/registry';
-import type { SourceContext } from '../src/lib/sources/types';
+import { SourceSkip, type SourceContext } from '../src/lib/sources/types';
 
 const pages = (process.env.CHECK_BOARDS ?? 'lever:aleph').split(',').flatMap((e, i) => {
   const p = parseEntry(e);
@@ -24,6 +24,8 @@ for (const s of buildSources(settings, pages)) {
     console.log(`${jobs.length ? 'OK  ' : 'ZERO'}  ${s.label}: ${jobs.length} jobs${sample ? `, e.g. "${sample.title}" at ${sample.company}` : ''}`);
     if (!jobs.length) failures++;
   } catch (e) {
+    // A site that refuses access is respected and reported, not counted as broken.
+    if (e instanceof SourceSkip) { console.log(`SKIP  ${s.label}: ${e.message}`); continue; }
     failures++;
     console.log(`FAIL  ${s.label}: ${e instanceof Error ? e.message : e}`);
   }

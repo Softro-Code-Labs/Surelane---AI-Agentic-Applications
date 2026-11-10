@@ -3,7 +3,7 @@ import { UNAVAILABLE_SOURCES, parseRss } from '@/lib/sources/adapters';
 import { careerPageSource, detectAts, parseEntry } from '@/lib/sources/career';
 import { buildSources } from '@/lib/sources/registry';
 import { checkPage, robotsAllow } from '@/lib/sources/http';
-import type { SourceContext } from '@/lib/sources/types';
+import { SourceSkip, type SourceContext } from '@/lib/sources/types';
 import { classify, rejectReason } from '@/lib/search/classify';
 
 // Shapes below follow each provider's published docs and, for ITPro.lk, its live feed.
@@ -41,6 +41,14 @@ describe('source adapters', () => {
     const feed = { 'https://itpro.lk/rss': () => new Response(ITPRO) };
     expect(await by('itpro').search(ctx({ ...feed, 'https://itpro.lk/robots.txt': () => new Response('User-agent: *\nAllow: /') }))).toHaveLength(1);
     await expect(by('itpro').search(ctx({ ...feed, 'https://itpro.lk/robots.txt': () => new Response('User-agent: *\nDisallow: /rss/') }))).rejects.toThrow(/robots/);
+  });
+  it('skips, rather than fails, a feed whose site refuses this server', async () => {
+    const robots = { 'https://itpro.lk/robots.txt': () => new Response('User-agent: *\nAllow: /') };
+    const refused = by('itpro').search(ctx({ ...robots, 'https://itpro.lk/rss': () => new Response('Forbidden', { status: 403 }) }));
+    await expect(refused).rejects.toBeInstanceOf(SourceSkip);
+    await expect(refused).rejects.toThrow(/refused access from this server \(HTTP 403\)/);
+    const broken = by('itpro').search(ctx({ ...robots, 'https://itpro.lk/rss': () => new Response('Oops', { status: 404 }) }));
+    await expect(broken).rejects.not.toBeInstanceOf(SourceSkip);
   });
   it('reads Himalayas, including expiry and Sri Lanka eligibility', async () => {
     const exp = 1798000000;

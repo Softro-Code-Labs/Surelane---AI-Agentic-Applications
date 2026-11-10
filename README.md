@@ -305,6 +305,7 @@ Shared parts live in `src/components`: `ui.tsx` for layout and labels, `controls
 |---|---|
 | Missed in Search history | Check that cron-job.org is active and the GitHub workflow is enabled. |
 | A source shows Failed | Read the error in Search history. A provider may have changed its format. |
+| A source shows Skipped: "the site refused access from this server" | The site blocks cloud servers such as GitHub's, though it may work from a home connection (ITPro.lk currently does this). Surelane respects the block and doesn't try to get around it. To use that source, ask the site to allow GitHub Actions, or run the worker on your own computer (see Running it yourself). |
 | Nothing arrives by email | Check **Needs you** on Today, then look under Email in Search settings for the reason. Use Send test email, and check your spam folder. |
 | Send test email works, but job emails don't | `RESEND_API_KEY` is in Vercel but not in GitHub. It has to be in both. |
 | Resend's test sender can only reach the email on your Resend account | **Send alerts to** doesn't match the address you signed up to Resend with. Change it, or verify a domain. |

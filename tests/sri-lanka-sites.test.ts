@@ -113,7 +113,7 @@ describe('Jobpal.lk feed', () => {
         return new Response(JOBPAL);
       }) as typeof fetch,
       sleep: async () => {}, now: new Date('2026-11-06T00:00:00Z'), keywords: ['accountant', 'finance executive', 'excel', 'sap'],
-      settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(),
+      settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'],
     });
     const jobpal = buildSources({ custom_feeds: [] }).find((s) => s.id === 'jobpal')!;
     expect(await jobpal.search(ctx('User-agent: *\nDisallow: /wp-admin/'))).toHaveLength(2);

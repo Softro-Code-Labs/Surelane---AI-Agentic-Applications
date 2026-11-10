@@ -96,3 +96,27 @@ export function redactPii(text: string, name?: string | null): string {
   }
   return out;
 }
+
+const PLACE_ALIASES: Record<string, string[]> = {
+  usa: ['usa', 'us', 'united states', 'united states of america', 'america'],
+  uk: ['uk', 'united kingdom', 'great britain', 'england', 'scotland', 'wales'],
+  uae: ['uae', 'united arab emirates', 'dubai', 'abu dhabi'],
+};
+const ALIAS_OF = new Map(Object.values(PLACE_ALIASES).flatMap((names) => names.map((n) => [n, names] as const)));
+
+/**
+ * True when `text` mentions `term` as a whole word or phrase. Plain substring
+ * matching made "US" match "Australia" and "IT" match "with".
+ */
+export function mentions(text: string, term: string): boolean {
+  const t = term.trim().toLowerCase();
+  if (!t) return false;
+  const hay = ` ${text.toLowerCase().replace(/[^a-z0-9+#]+/g, ' ')} `;
+  return hay.includes(` ${t.replace(/[^a-z0-9+#]+/g, ' ').trim()} `);
+}
+
+/** As `mentions`, and also knows the usual spellings of a few countries. */
+export function mentionsPlace(text: string, place: string): boolean {
+  const names = ALIAS_OF.get(place.trim().toLowerCase()) ?? [place];
+  return names.some((n) => mentions(text, n));
+}

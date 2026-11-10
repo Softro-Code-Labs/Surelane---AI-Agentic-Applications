@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { q, one } from '../db';
 import { formatColombo } from '../schedule';
-import { RECOMMENDABLE, getSettings, isLocalMarket, searchesOff, type Scope } from '../settings';
+import { getSettings, isLocalMarket, recommendableAt, searchesOff, type Scope } from '../settings';
 import { escapeHtml as e, truncate } from '../text';
 
 type Env = Record<string, string | undefined>;
@@ -58,8 +58,9 @@ export type EmailJob = {
   explanation: string | null; matching_skills: string[]; missing_skills: string[]; mandatory_missing: string[]; url: string; source_label: string;
 };
 
-const INK = '#0f2a38', MUTED = '#46606c', PETROL = '#0f3f56', ROAD = '#14697a', LINE = '#d3dee2';
-const TIER: Record<string, string> = { Strong: '#0a6e55', Good: '#14697a', Potential: '#46606c' };
+// Obsidian Iris, as in the app. Email clients ignore stylesheets, so the values are written out.
+const INK = '#0e0c1c', MUTED = '#55516b', PETROL = '#0e0c1c', ROAD = '#4f3bd6', LINE = '#e3e0ee';
+const TIER: Record<string, string> = { Strong: '#047857', Good: '#4f3bd6', Potential: '#55516b' };
 const MODE: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site', unknown: 'Work mode not stated' };
 
 function jobBlock(j: EmailJob, appUrl?: string) {
@@ -74,7 +75,7 @@ function jobBlock(j: EmailJob, appUrl?: string) {
     ${j.explanation ? `<p style="font-size:14px;line-height:1.5;color:${INK};margin:10px 0 6px">${e(truncate(j.explanation, 320))}</p>` : ''}
     ${j.matching_skills.length ? `<div style="font-size:13px;color:${INK};margin:3px 0"><b>You match:</b> ${e(j.matching_skills.slice(0, 8).join(', '))}</div>` : ''}
     ${j.missing_skills.length ? `<div style="font-size:13px;color:${INK};margin:3px 0"><b>Missing:</b> ${e(j.missing_skills.slice(0, 6).join(', '))}</div>` : ''}
-    ${j.mandatory_missing.length ? `<div style="font-size:13px;color:#a12d22;margin:3px 0"><b>Required, not on your CV:</b> ${e(j.mandatory_missing.join(', '))}</div>` : ''}
+    ${j.mandatory_missing.length ? `<div style="font-size:13px;color:#b91c1c;margin:3px 0"><b>Required, not on your CV:</b> ${e(j.mandatory_missing.join(', '))}</div>` : ''}
     <div style="margin-top:12px"><a href="${e(j.url)}" style="display:inline-block;background:${PETROL};color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:9px 16px;border-radius:6px">View and apply</a>
     ${appUrl ? `<a href="${e(`${appUrl}/jobs/${j.id}`)}" style="font-size:13px;color:${ROAD};margin-left:12px">See match details</a>` : ''}</div>
     <div style="font-size:12px;color:${MUTED};margin-top:8px">Listed on ${e(j.source_label)}</div>
@@ -83,14 +84,14 @@ function jobBlock(j: EmailJob, appUrl?: string) {
 
 function shell(title: string, body: string, appUrl?: string) {
   const logo = appUrl ? `<img src="${e(appUrl)}/icon-192.png" width="28" height="28" alt="" style="vertical-align:middle;border:0;margin-right:8px;border-radius:6px">` : '';
-  return `<!doctype html><html><body style="margin:0;background:#f3f6f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  return `<!doctype html><html><body style="margin:0;background:#f7f6fb;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:20px 12px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:10px;overflow:hidden">
-  <tr><td style="background:${PETROL};padding:14px 24px;color:#fff;font-size:18px;font-weight:700">${logo}surelane</td></tr>
+  <tr><td style="background:${PETROL};padding:14px 24px;color:#fff;font-size:18px;font-weight:600;letter-spacing:-0.01em">${logo}Surelane</td></tr>
   <tr><td style="padding:24px">
   <div style="font-size:21px;font-weight:700;color:${INK};line-height:1.3">${e(title)}</div>
   ${body}
-  <p style="font-size:13px;line-height:1.5;color:${INK};background:#ddf3ec;border-radius:6px;padding:10px 12px;margin:20px 0 0">Surelane checks that a listing is live, not that an employer is honest. Never pay a fee to apply.</p>
+  <p style="font-size:13px;line-height:1.5;color:${INK};background:#efecff;border-radius:6px;padding:10px 12px;margin:20px 0 0">Surelane checks that a listing is live, not that an employer is honest. Never pay a fee to apply.</p>
   <p style="font-size:12px;color:${MUTED};margin:14px 0 0">Sent by Surelane. ${appUrl ? `<a href="${e(appUrl)}/settings" style="color:${ROAD}">Change email settings</a>` : 'Change this in Search settings.'}</p>
   </td></tr></table></td></tr></table></body></html>`;
 }
@@ -159,9 +160,9 @@ export async function sendRunEmail(runId: string, { env = process.env, now = () 
 
   // Each scope is picked separately, so a busy one cannot crowd the other out of the email.
   const pick = (market: string) => q<EmailJob>(
-    `SELECT j.* FROM jobs j WHERE ${RECOMMENDABLE} AND ${market}
+    `SELECT j.* FROM jobs j WHERE ${recommendableAt('$2::timestamptz')} AND ${market}
        AND j.notified_at IS NULL AND j.score >= $1 ${s.email_mode === 'strong' ? `AND j.tier = 'Strong'` : ''}
-     ORDER BY j.score DESC LIMIT 25`, [s.min_score]);
+     ORDER BY j.score DESC LIMIT 25`, [s.min_score, now()]);
   const jobs = [
     ...(s.local_enabled ? await pick(`j.market = 'sri_lanka'`) : []),
     ...(s.global_enabled ? await pick(`j.market <> 'sri_lanka'`) : []),

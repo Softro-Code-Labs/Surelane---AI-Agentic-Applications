@@ -6,11 +6,11 @@ import { requirementLines, scoreJob } from '@/lib/match/score';
 import { classify } from '@/lib/search/classify';
 import { getCv, getSettings } from '@/lib/settings';
 import { isLinkedinUrl, linkedinJobId, linkedinJobUrl } from '@/lib/linkedin';
-import { jobFingerprint, safeUrl } from '@/lib/text';
+import { jobFingerprint, parseDeadline, safeUrl } from '@/lib/text';
 
 const body = z.object({
   url: z.string().trim().max(1000), title: z.string().trim().min(2).max(200), company: z.string().trim().min(1).max(200),
-  location: z.string().trim().max(200).default('Sri Lanka'), description: z.string().trim().min(30).max(30000), deadline: z.string().optional(),
+  location: z.string().trim().max(200).default('Sri Lanka'), description: z.string().trim().min(30).max(30000), deadline: z.string().trim().max(40).optional(),
 });
 
 /** Saves a vacancy you found yourself, for example on LinkedIn, and scores it. */
@@ -27,12 +27,14 @@ export async function POST(req: Request) {
   }
   const url = linkedinId ? linkedinJobUrl(linkedinId) : safeUrl(j.url);
   if (!url) return NextResponse.json({ error: 'Enter the full link to the job, starting with https://' }, { status: 400 });
-  const known = await one<{ id: string }>(`SELECT id FROM jobs WHERE url = $1 ORDER BY id LIMIT 1`, [url]);
+  const known = await one<{ id: string }>(`SELECT id FROM jobs WHERE md5(url) = md5($1) AND url = $1 ORDER BY id LIMIT 1`, [url]);
   if (known) return NextResponse.json({ ok: true, id: known.id, existing: true });
   const label = linkedin ? 'LinkedIn, added by you' : 'Added by you';
   const cv = await getCv();
   if (!cv) return NextResponse.json({ error: 'Upload your CV first, so this job can be scored.' }, { status: 409 });
-  const deadline = j.deadline ? new Date(j.deadline) : null;
+  // A date with no time means the whole of that day in Sri Lanka, as it does for searched jobs.
+  const deadline = j.deadline ? parseDeadline(j.deadline) : null;
+  if (j.deadline && !deadline) return NextResponse.json({ error: 'That closing date could not be read. Use a date such as 2026-12-31.' }, { status: 400 });
   const raw = { source: 'manual', sourceLabel: label, url, title: j.title, company: j.company, location: j.location, description: j.description, deadline };
   const c = classify(raw);
   const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: c.workMode }, cv.profile, await getSettings());

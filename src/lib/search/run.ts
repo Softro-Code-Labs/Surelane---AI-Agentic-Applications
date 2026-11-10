@@ -3,7 +3,7 @@ import type { CandidateProfile } from '../cv/parse';
 import { one, q } from '../db';
 import { scoreJob, type MatchResult } from '../match/score';
 import { sendRunEmail } from '../notify/email';
-import { RECOMMENDABLE, SCOPE_OFF, getCv, getSettings, scopeSql, searchesOff, type Settings } from '../settings';
+import { SCOPE_OFF, getCv, getSettings, recommendableAt, scopeSql, searchesOff, type Settings } from '../settings';
 import { DETAILS_PER_RUN } from '../sources/career';
 import { buildSources, enabledCareerPages, saveOutcome } from '../sources/registry';
 import { SourceSkip } from '../sources/types';
@@ -49,9 +49,10 @@ function mergeSql(raw: RawJob) {
   return JSON.stringify([{ source: raw.sourceLabel, url: raw.url }]);
 }
 
-async function saveJob(raw: RawJob, c: ReturnType<typeof classify>, fp: string, m: MatchResult, version: string, now: Date, method: string) {
+/** Saves the job and its place in this run's results in one round trip to the database. */
+async function saveJob(runId: string, raw: RawJob, c: ReturnType<typeof classify>, fp: string, m: MatchResult, version: string, now: Date, method: string) {
   return one<{ id: string; inserted: boolean }>(
-    `INSERT INTO jobs (fingerprint, source, source_label, source_job_id, url, sources, title, company, location, country, market,
+    `WITH saved AS (INSERT INTO jobs (fingerprint, source, source_label, source_job_id, url, sources, title, company, location, country, market,
        work_mode, sl_eligibility, employment_type, category, salary, posted_at, deadline, description, company_info, requirements,
        verified_at, verify_method, first_seen_at, last_seen_at, score, tier, scored_by, matching_skills, missing_skills,
        mandatory_missing, explanation, suitability, profile_version)
@@ -64,11 +65,14 @@ async function saveJob(raw: RawJob, c: ReturnType<typeof classify>, fp: string, 
        salary = COALESCE(jobs.salary, EXCLUDED.salary),
        description = CASE WHEN length(EXCLUDED.description) > length(jobs.description) THEN EXCLUDED.description ELSE jobs.description END,
        sources = CASE WHEN jobs.sources @> EXCLUDED.sources THEN jobs.sources ELSE jobs.sources || EXCLUDED.sources END
-     RETURNING id, (xmax = 0) AS inserted`,
+     RETURNING id, (xmax = 0) AS inserted),
+     listed AS (INSERT INTO search_results (run_id, job_id, is_new, score, created_at)
+       SELECT $32, id, inserted, $24, $22 FROM saved ON CONFLICT (run_id, job_id) DO NOTHING)
+     SELECT id, inserted FROM saved`,
     [fp, raw.source, raw.sourceLabel, raw.sourceJobId ?? null, raw.url, mergeSql(raw), raw.title, raw.company, raw.location, c.country, c.market,
       c.workMode, c.slEligibility, raw.employmentType ?? null, raw.category ?? null, raw.salary ?? null, raw.postedAt ?? null, raw.deadline ?? null,
       raw.description, raw.companyInfo ?? null, m.requirements, now, method, m.score, m.tier, m.matchingSkills, m.missingSkills,
-      m.mandatoryMissing, m.explanation, m.suitability, version],
+      m.mandatoryMissing, m.explanation, m.suitability, version, runId],
   );
 }
 
@@ -76,17 +80,25 @@ async function saveJob(raw: RawJob, c: ReturnType<typeof classify>, fp: string, 
 export async function rescoreStored(profile: CandidateProfile, version: string, s: Settings): Promise<number> {
   const rows = await q<{ id: string; title: string; description: string; location: string; work_mode: string; category: string | null }>(
     `SELECT id, title, description, location, work_mode, category FROM jobs WHERE status = 'active' AND profile_version IS DISTINCT FROM $1`, [version]);
-  for (const j of rows) {
-    const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: j.work_mode, category: j.category }, profile, s);
+  // One statement per 200 jobs, not one per job: a CV upload re-scores everything inside a single web request.
+  for (let i = 0; i < rows.length; i += 200) {
+    const batch = rows.slice(i, i + 200).map((j) => {
+      const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: j.work_mode, category: j.category }, profile, s);
+      return { id: j.id, score: m.score, tier: m.tier, matching: m.matchingSkills, missing: m.missingSkills, mandatory: m.mandatoryMissing, explanation: m.explanation, suitability: m.suitability };
+    });
     await q(
-      `UPDATE jobs SET score=$2, tier=$3, scored_by='rules', matching_skills=$4, missing_skills=$5, mandatory_missing=$6,
-         explanation=$7, suitability=$8, profile_version=$9 WHERE id=$1`,
-      [j.id, m.score, m.tier, m.matchingSkills, m.missingSkills, m.mandatoryMissing, m.explanation, m.suitability, version]);
+      `UPDATE jobs j SET score = x.score, tier = x.tier, scored_by = 'rules',
+         matching_skills = ARRAY(SELECT jsonb_array_elements_text(x.matching)), missing_skills = ARRAY(SELECT jsonb_array_elements_text(x.missing)),
+         mandatory_missing = ARRAY(SELECT jsonb_array_elements_text(x.mandatory)), explanation = x.explanation, suitability = x.suitability, profile_version = $2
+       FROM jsonb_to_recordset($1::jsonb) AS x(id bigint, score integer, tier text, matching jsonb, missing jsonb, mandatory jsonb, explanation text, suitability text)
+       WHERE j.id = x.id`, [JSON.stringify(batch), version]);
   }
   return rows.length;
 }
 
 const VERIFY_LIMIT = 40;
+/** Sources read at the same time. Each is a different website. */
+const SOURCE_CONCURRENCY = 4;
 
 /** Re-checks stored jobs that were not confirmed by a provider during this run. */
 async function verifyStored(sources: SourceAdapter[], ctx: SourceContext, min: number, now: Date, log: (m: string) => void) {
@@ -128,14 +140,14 @@ async function verifyStored(sources: SourceAdapter[], ctx: SourceContext, min: n
   return closed.length;
 }
 
-async function refineTop(provider: Provider, profile: CandidateProfile, version: string, s: Settings, env: Record<string, string | undefined>, sleep: Deps['sleep'], log: (m: string) => void) {
+async function refineTop(provider: Provider, profile: CandidateProfile, version: string, s: Settings, env: Record<string, string | undefined>, sleep: Deps['sleep'], log: (m: string) => void, now: Date) {
   // A local model is limited by the time budget below; a cloud model by its daily free allowance.
   const maxJobs = Number(env.AI_MAX_JOBS_PER_RUN || (provider.cloud ? 20 : 12));
   const deadline = Date.now() + Number(env.AI_TIME_BUDGET_SECONDS || 420) * 1000;
   const rows = await q<{ id: string; title: string; company: string; description: string; score: number; matching_skills: string[]; missing_skills: string[] }>(
     `SELECT id, title, company, description, score, matching_skills, missing_skills FROM jobs j
-      WHERE ${RECOMMENDABLE} ${scopeSql(s)} AND score >= $1 AND scored_by = 'rules' AND profile_version = $2
-      ORDER BY score DESC LIMIT $3`, [s.min_score, version, maxJobs]);
+      WHERE ${recommendableAt('$4::timestamptz')} ${scopeSql(s)} AND score >= $1 AND scored_by = 'rules' AND profile_version = $2
+      ORDER BY score DESC LIMIT $3`, [s.min_score, version, maxJobs, now]);
   let done = 0;
   for (const j of rows) {
     if (Date.now() > deadline) { log(`AI time budget reached after ${done} of ${rows.length} jobs`); break; }
@@ -195,39 +207,66 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
     const sources = deps.sources ?? buildSources(settings, await enabledCareerPages());
     let tried = 0, failed = 0;
 
+    const record = (source: SourceAdapter, status: string, n: number, error: string | null, ms = 0) => q(
+      `INSERT INTO search_run_sources (run_id, source, label, status, jobs_found, error, duration_ms, checked_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [runId, source.id, source.label, status, n, error, ms, clock()]);
+
+    // Step 1: decide which sources run at all.
+    const due: SourceAdapter[] = [];
     for (const source of sources) {
-      await checkpoint(runId, clock());
-      const started = Date.now();
-      const record = (status: string, n: number, error: string | null) => q(
-        `INSERT INTO search_run_sources (run_id, source, label, status, jobs_found, error, duration_ms, checked_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [runId, source.id, source.label, status, n, error, Date.now() - started, clock()]);
-
-      if (source.scope === 'global' && !settings.global_enabled) { await record('skipped', 0, 'Global job opportunities are off'); continue; }
-      if (source.scope === 'local' && !settings.local_enabled) { await record('skipped', 0, 'Local job opportunities are off'); continue; }
+      if (source.scope === 'global' && !settings.global_enabled) { await record(source, 'skipped', 0, 'Global job opportunities are off'); continue; }
+      if (source.scope === 'local' && !settings.local_enabled) { await record(source, 'skipped', 0, 'Local job opportunities are off'); continue; }
       const missing = source.missingConfig?.(ctx);
-      if (missing) { await record('skipped', 0, missing); continue; }
+      if (missing) { await record(source, 'skipped', 0, missing); continue; }
       if (source.maxPerDay && (await usedToday(source.id, now)) >= source.maxPerDay) {
-        await record('skipped', 0, `Daily limit of ${source.maxPerDay} requests reached`); continue;
+        await record(source, 'skipped', 0, `Daily limit of ${source.maxPerDay} requests reached`); continue;
       }
+      due.push(source);
+    }
 
+    // Step 2: read them a few at a time. Most of a search is waiting on other
+    // people's servers, so this is where the time goes. Each source is a
+    // different website, so no site sees more traffic than before.
+    type Fetched = { ms: number; raws?: RawJob[]; error?: unknown };
+    const fetched = new Map<SourceAdapter, Fetched>();
+    let next = 0;
+    let stop: unknown = null;
+    await Promise.all(Array.from({ length: Math.min(SOURCE_CONCURRENCY, due.length) }, async () => {
+      while (!stop && next < due.length) {
+        const source = due[next++]!;
+        const started = Date.now();
+        try {
+          await checkpoint(runId, clock());
+          const raws = await source.search(ctx);
+          fetched.set(source, { raws, ms: Date.now() - started });
+        } catch (e) {
+          if (e instanceof Cancelled) stop = e; else fetched.set(source, { error: e, ms: Date.now() - started });
+        }
+      }
+    }));
+    if (stop) throw stop;
+
+    // Step 3: save what came back, one source at a time and in the usual order.
+    for (const source of due) {
+      await checkpoint(runId, clock());
+      const got = fetched.get(source)!;
       tried++;
-      let raws: RawJob[];
-      try {
-        raws = await source.search(ctx);
-      } catch (e) {
+      if (!got.raws) {
+        const e = got.error;
         const msg = e instanceof Error ? e.message : String(e);
         if (source.careerPageId) await saveOutcome(source.careerPageId, source.outcome ?? { status: 'error', message: msg, jobs: [] }, clock());
         if (e instanceof SourceSkip) {
           // Being told no is respected, and does not count against the search.
           tried--;
-          await record('skipped', 0, msg);
+          await record(source, 'skipped', 0, msg, got.ms);
           continue;
         }
         failed++;
         errors.push(`${source.label}: ${msg}`);
-        await record('failed', 0, msg);
+        await record(source, 'failed', 0, msg, got.ms);
         continue;
       }
+      const raws = got.raws;
       if (source.careerPageId && source.outcome) await saveOutcome(source.careerPageId, source.outcome, clock());
 
       const listed = new Set<string>();
@@ -250,13 +289,10 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
         if (!m.relevant || !m.tier) { stats.irrelevant++; continue; }
 
         const method = source.completeListing ? 'employer_board' : 'feed_listing';
-        const saved = await saveJob(raw, c, fp, m, version, clock(), method);
+        const saved = await saveJob(runId, raw, c, fp, m, version, clock(), method);
         if (!saved) continue;
         if (saved.inserted) stats.fresh++; else stats.duplicates++;
         kept++;
-        await q(
-          `INSERT INTO search_results (run_id, job_id, is_new, score, created_at) VALUES ($1,$2,$3,$4,$5)
-           ON CONFLICT (run_id, job_id) DO NOTHING`, [runId, saved.id, saved.inserted, m.score, clock()]);
       }
 
       if (source.completeListing && (raws.length > 0 || source.emptyMeansClosed !== false)) {
@@ -264,7 +300,7 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
           `UPDATE jobs SET status='closed', status_reason='No longer on the employer''s job board'
             WHERE source=$1 AND status='active' AND NOT (fingerprint = ANY($2::text[]))`, [source.id, [...listed]]);
       }
-      await record('success', raws.length, null);
+      await record(source, 'success', raws.length, null, got.ms);
       log(`${source.label}: ${raws.length} listed, ${kept} relevant`);
     }
 
@@ -277,7 +313,7 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
 
     await checkpoint(runId, clock());
     const provider = deps.provider;
-    if (provider && aiEnabled(env)) await refineTop(provider, profile, version, settings, env, sleep, log);
+    if (provider && aiEnabled(env)) await refineTop(provider, profile, version, settings, env, sleep, log, clock());
     await q(`UPDATE search_results r SET score = j.score FROM jobs j WHERE r.job_id = j.id AND r.run_id = $1`, [runId]);
 
     await checkpoint(runId, clock());

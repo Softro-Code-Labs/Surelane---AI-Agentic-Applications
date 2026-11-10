@@ -11,7 +11,7 @@ function Preview() {
     <div aria-hidden="true" className="relative mt-10 max-w-sm rounded-2xl border border-white/12 bg-white/[.07] p-4 shadow-[0_30px_60px_-20px_rgba(0,0,0,.6)] backdrop-blur-md">
       <div className="flex items-center gap-4">
         <div className="relative h-16 w-16 shrink-0">
-          <svg viewBox="0 0 64 64" className="-rotate-90"><circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="6" /><circle cx="32" cy="32" r={r} fill="none" stroke="#6ee7b7" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.08} /></svg>
+          <svg viewBox="0 0 64 64" className="-rotate-90"><circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="6" /><circle cx="32" cy="32" r={r} fill="none" stroke="var(--safe-bright)" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.08} /></svg>
           <span className="absolute inset-0 flex items-center justify-center font-display text-lg font-bold">92</span>
         </div>
         <div className="min-w-0">
@@ -31,7 +31,7 @@ export function AuthScreen({ title, intro, children }: { title: string; intro: s
       <aside className="band band-grid relative overflow-hidden px-6 py-6 sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-12">
         <Logo size={34} className="text-white" />
         <div className="relative z-10 mt-6 hidden lg:block">
-          <p className="max-w-md font-display text-[2.6rem] font-bold leading-[1.08] tracking-[-0.03em]">Your clear, safe lane to <span className="bg-gradient-to-r from-indigo-200 to-violet-200 bg-clip-text text-transparent">real jobs</span>.</p>
+          <p className="max-w-md font-display text-[2.6rem] font-bold leading-[1.08] tracking-[-0.03em]">Your clear, safe lane to <span className="text-sky">real jobs</span>.</p>
           <ul className="mt-7 space-y-3 text-on-band-soft">
             {PROMISES.map((p) => <li key={p} className="flex items-start gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10"><CircleCheck size={15} className="text-safe-bright" aria-hidden="true" /></span>{p}</li>)}
           </ul>

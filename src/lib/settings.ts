@@ -54,12 +54,18 @@ export async function getCvText(): Promise<string> {
   return row ? decrypt(row.text_enc).toString('utf8') : '';
 }
 
-/** The one definition of "this job may be recommended". Used by pages and email. */
-export const RECOMMENDABLE = `
+/**
+ * The one definition of "this job may be recommended". Used by pages and email.
+ * `at` is the SQL for "now". Pages use the database clock. A search passes its
+ * own clock as a parameter ('$3::timestamptz'), so one run judges every job
+ * against the same instant, and tests do not depend on today's date.
+ */
+export const recommendableAt = (at = 'now()') => `
   j.status = 'active'
-  AND (j.deadline IS NULL OR j.deadline >= now())
-  AND (j.verified_at > now() - interval '72 hours' OR j.source = 'manual')
+  AND (j.deadline IS NULL OR j.deadline >= ${at})
+  AND (j.verified_at > ${at} - interval '72 hours' OR j.source = 'manual')
   AND j.tier IS NOT NULL`;
+export const RECOMMENDABLE = recommendableAt();
 
 /*
  * Local means a job in Sri Lanka (market sri_lanka). Global means a job with an

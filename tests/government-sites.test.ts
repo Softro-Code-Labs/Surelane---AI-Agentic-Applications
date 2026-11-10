@@ -78,7 +78,7 @@ describe('government feeds', () => {
   it('are searched as Government sources, only when robots.txt allows', async () => {
     const ctx = (robots: string, body: string): SourceContext => ({
       fetch: (async (url: string) => new Response(url.endsWith('/robots.txt') ? robots : body)) as typeof fetch,
-      sleep: async () => {}, now: new Date('2026-11-10T00:00:00Z'), keywords: [], settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(),
+      sleep: async () => {}, now: new Date('2026-11-10T00:00:00Z'), keywords: [], settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'],
     });
     const sources = buildSources({ custom_feeds: [] });
     const govjobs = sources.find((s) => s.id === 'govjobs')!;

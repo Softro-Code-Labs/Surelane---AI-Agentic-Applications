@@ -165,6 +165,8 @@ CREATE INDEX IF NOT EXISTS jobs_last_seen_idx ON jobs (last_seen_at);
 CREATE INDEX IF NOT EXISTS jobs_first_seen_idx ON jobs (first_seen_at);
 CREATE INDEX IF NOT EXISTS jobs_active_score_idx ON jobs (status, score DESC);
 CREATE INDEX IF NOT EXISTS jobs_unnotified_idx ON jobs (score DESC) WHERE notified_at IS NULL AND status = 'active';
+-- Adding a job by hand looks it up by link first.
+CREATE INDEX IF NOT EXISTS jobs_url_idx ON jobs (md5(url));
 
 DO $$ BEGIN
   ALTER TABLE applications ADD CONSTRAINT applications_job_fk

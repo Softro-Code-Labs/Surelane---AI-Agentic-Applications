@@ -1,5 +1,6 @@
 import { looksClosed } from '../sources/http';
 import type { RawJob } from '../sources/types';
+import { mentionsPlace } from '../text';
 
 const LK = /\b(sri lanka|ceylon|colombo|kandy|galle|jaffna|gampaha|negombo|kurunegala|matara|ratnapura|batticaloa|kalutara|kegalle|puttalam|vavuniya|trincomalee|anuradhapura|badulla|moratuwa|malabe|nugegoda|dehiwala|kelaniya|katunayake|rajagiriya|kaduwela)\b/i;
 
@@ -37,8 +38,9 @@ export function rejectReason(j: RawJob, market: Market, workMode: string, eligib
     return { kind: 'preference', reason: `Not a ${s.remote_pref} role` };
   }
   if (market === 'international' && eligibility !== 'yes' && s.preferred_countries.length) {
-    const hay = `${j.location} ${j.country ?? ''}`.toLowerCase();
-    if (!s.preferred_countries.some((c) => hay.includes(c.toLowerCase()))) return { kind: 'preference', reason: 'Outside your preferred countries' };
+    // Whole words, with the usual spellings: "US" must not match "Australia", and "USA" should match "United States".
+    const hay = `${j.location} ${j.country ?? ''}`;
+    if (!s.preferred_countries.some((c) => mentionsPlace(hay, c))) return { kind: 'preference', reason: 'Outside your preferred countries' };
   }
   return null;
 }

@@ -1,4 +1,5 @@
 import type { CandidateProfile } from '../cv/parse';
+import { mentions } from '../text';
 import { ADJACENT, DEGREE_LEVELS, FAMILY_LABEL, SOFT_SKILLS, degreeLevel, familyOfTitle, findQualifications, findSkills } from './taxonomy';
 
 export type Tier = 'Strong' | 'Good' | 'Potential';
@@ -100,10 +101,11 @@ export function scoreJob(job: MatchInput, p: CandidateProfile, prefs: MatchPrefs
 
   let raw = (want ? 0.42 * skillFit : 0.2 * familyFit) + 0.24 * familyFit + 0.1 * titleFit + 0.14 * expFit + 0.1 * qualFit + (want ? 0 : 0.1 * titleFit);
 
-  const hay = `${job.title} ${job.category ?? ''} ${job.description}`.toLowerCase();
-  if (prefs.categories?.some((c) => c && hay.includes(c.toLowerCase()))) raw += 0.04;
-  if (prefs.industries?.some((c) => c && hay.includes(c.toLowerCase()))) raw += 0.03;
-  if (prefs.preferred_locations?.some((c) => c && (job.location ?? '').toLowerCase().includes(c.toLowerCase()))) raw += 0.03;
+  // Whole words only: as a substring, a short preference such as "IT" matched almost every job.
+  const hay = `${job.title} ${job.category ?? ''} ${job.description}`;
+  if (prefs.categories?.some((c) => mentions(hay, c))) raw += 0.04;
+  if (prefs.industries?.some((c) => mentions(hay, c))) raw += 0.03;
+  if (prefs.preferred_locations?.some((c) => mentions(job.location ?? '', c))) raw += 0.03;
 
   const score = Math.round(Math.max(0, Math.min(1, raw)) * 100);
   const matchingSkills = jobSkills.filter((s) => mine.has(s));

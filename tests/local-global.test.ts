@@ -35,7 +35,7 @@ describe('Local and Global switches', () => {
         return new Response(JSON.stringify({ jobs: [] }));
       }) as typeof fetch,
       sleep: async () => {}, now: new Date('2026-11-10T00:00:00Z'), keywords: ['accountant'],
-      settings: { local_enabled, global_enabled, custom_feeds: [] }, env: { JOOBLE_API_KEY: 'k' }, robotsCache: new Map(),
+      settings: { local_enabled, global_enabled, custom_feeds: [] }, env: { JOOBLE_API_KEY: 'k' }, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'],
     });
     const himalayas = buildSources({ custom_feeds: [] }).find((s) => s.id === 'himalayas')!;
     const jooble = buildSources({ custom_feeds: [] }).find((s) => s.id === 'jooble')!;

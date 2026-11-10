@@ -23,7 +23,7 @@ function ctx(routes: Record<string, (init?: RequestInit) => Response>, over: Par
       return new Response('', { status: 404 });
     }) as typeof fetch,
     sleep: async () => {}, now: new Date('2026-11-05T00:00:00Z'), keywords: ['software engineer'],
-    settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), ...over,
+    settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'], ...over,
   };
 }
 const json = (d: unknown, status = 200) => () => new Response(JSON.stringify(d), { status });

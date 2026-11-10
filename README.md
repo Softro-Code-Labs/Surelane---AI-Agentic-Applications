@@ -38,7 +38,9 @@ Your database, your data, the sign-in and the page addresses don't change. The d
 | Local AI | Ollama, inside GitHub's runner | Runs on 2 CPU cores, so it is slow. See Local AI below. |
 | Email | Resend Free | 3,000 emails a month and 100 a day, far more than this app sends. Going over the limit stops sending, rather than charging you. |
 
-The app has no public sign-up: the first account closes registration, and that account needs your `SETUP_CODE`.
+The app has no public sign-up: the first account closes registration, and that account needs your `SETUP_CODE`. A deployed app refuses to create the account until `SETUP_CODE` is set. Sign-in locks an address for 15 minutes after five wrong passwords, so someone guessing cannot lock you out from your own device.
+
+**Keep `.env.local` to yourself.** It holds your database password, your GitHub token and your email key. Don't commit it, and leave it out of any zip you share. `.env.example` lists every setting with no values.
 
 ## What it can search
 
@@ -237,6 +239,8 @@ If Ollama or the model can't start, the search still runs on the built-in engine
 
 ## How your rules work
 
+**Speed.** A search reads up to four sources at once, because most of its time is spent waiting for other websites. Each source is a different site, so no site gets more traffic than before. Results are still saved one source at a time.
+
 **Schedule.** 8:00 AM, 12:30 PM and 5:00 PM Colombo time, each with its own switch. Times are fixed, because they also live in the GitHub workflow. A late trigger still runs for up to 2 hours. After that the slot shows as Missed in Search history. A slot can only run once a day, however many triggers arrive.
 
 **Agent switch.** Off means no scheduled searches, no Search now, and no job emails. A search already running stops at its next step and sends nothing. Daily cleanup keeps running while the agent is off, because it is maintenance, not a search.
@@ -291,10 +295,10 @@ npm run typecheck
 
 Every colour, in light and dark, comes from the tokens in `src/app/globals.css`. Text and background pairs meet WCAG AA contrast, and form-control borders meet 3:1. Use the tokens rather than new colours.
 
-- **Brand.** The mark is a check that carries on into a forward arrow ("sure" plus "lane"), on an indigo-to-violet tile. It lives in `src/components/brand.tsx`. The favicon (`src/app/icon.svg`) and app icons (`public/*.png`, `src/app/apple-icon.png`) use the same geometry.
-- **Colour has one job each.** Indigo is the brand and the main actions. Emerald means safe (on, searched, still open), amber means look at this, and rose means stop. Colour never works alone: each state also has a word or an icon.
-- **Type.** Plus Jakarta Sans for headings and Inter for everything else. Both are self-hosted through Fontsource, under the free SIL Open Font License.
-- **Depth.** Content sits on cards (`.card`): 16px corners, a hairline border and a soft shadow. Dialogs and toasts float higher. The deep-navy hero (`.band`) is kept for the Today header, the profile banner and the sign-in screen.
+- **Brand.** The mark is "Lane": three bands that grow toward you, like markings on the lane ahead, one for each daily search. The top band carries the iris accent. It lives in `src/components/brand.tsx`, which also holds the heavier cut used below 24 px. The favicon (`src/app/icon.svg`) and app icons (`public/*.png`, `src/app/apple-icon.png`) use the same paths. In the app the mark sits beside the wordmark with no tile, and takes its colours from `--mark-top`, `--mark-mid` and `--mark-bot`. App icons put it on the near-black tile.
+- **Colour has one job each.** The palette is "Obsidian Iris": near-black `#0E0C1C`, soft violet `#8F7BFF` and lilac `#CFC8FF`. Iris is the brand and the main actions (`#4F3BD6` on light, `#9D8CFF` on dark). Emerald means safe (on, searched, still open), amber means look at this, and rose means stop. Colour never works alone: each state also has a word or an icon. Job emails use the same colours.
+- **Type.** Schibsted Grotesk for the wordmark and headings, and Inter for everything else. Both are self-hosted through Fontsource, under the free SIL Open Font License.
+- **Depth.** Content sits on cards (`.card`): 16px corners, a hairline border and a soft shadow. Dialogs and toasts float higher. The obsidian hero (`.band`) is kept for the Today header, the profile banner and the sign-in screen.
 - **Signature elements.** The match ring (score plus tier), the day timeline on Today, and the stage cards in Applications.
 - **Layout.** A sidebar on desktop puts every page one click away. Phones get a frosted top bar, a five-tab bottom bar, and pill tabs inside "You" and "Setup". Pages are built from `Page`, `PageHead`, `Section` (a card), `Stat` and `Empty`.
 - **Plain words.** Sentence case, no jargon, and no promise the app can't keep. Surelane checks that a listing is live, not that an employer is honest, and it says so.

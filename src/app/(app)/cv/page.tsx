@@ -41,7 +41,7 @@ export default async function CvPage() {
         <div className="min-w-0">
           <section className="card mb-5 overflow-hidden">
             <div className="band band-grid h-20" aria-hidden="true" />
-            <div className="-mt-10 px-5 pb-6 sm:px-6">
+            <div className="relative -mt-10 px-5 pb-6 sm:px-6">
               <span className="brand-gradient flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-surface font-display text-2xl font-bold text-white shadow-[var(--shadow-md)]">{initials(p.name)}</span>
               <p className="mt-3 font-display text-[1.5rem] font-bold leading-tight">{p.name ?? 'Name not found'}</p>
               <p className="text-soft">{p.headline || 'No job title found'}</p>

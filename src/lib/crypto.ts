@@ -33,7 +33,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const [, salt, hash] = stored.split('$');
   if (!salt || !hash) return false;
   const key = await scryptAsync(password, Buffer.from(salt, 'base64'), 32, SCRYPT);
-  return timingSafeEqual(key, Buffer.from(hash, 'base64'));
+  const want = Buffer.from(hash, 'base64');
+  // timingSafeEqual throws on unequal lengths, which a damaged hash would trigger.
+  return want.length === key.length && timingSafeEqual(key, want);
 }
 
 export function sha256(s: string): string {

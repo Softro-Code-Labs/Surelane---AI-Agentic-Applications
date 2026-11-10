@@ -5,7 +5,7 @@ import { requestTask } from '@/lib/ai/tasks';
 import { triggerWorker } from '@/lib/dispatch';
 
 const body = z.object({
-  kind: z.enum(['cover_letter', 'job_summary', 'cv_improve', 'career_recs']), jobId: z.union([z.string(), z.number()]).nullish(),
+  kind: z.enum(['cover_letter', 'job_summary', 'cv_improve', 'career_recs']), jobId: z.union([z.string().regex(/^[1-9]\d{0,17}$/), z.number().int().positive()]).nullish(),
   basis: z.enum(['reference', 'scratch']).optional(),
 });
 

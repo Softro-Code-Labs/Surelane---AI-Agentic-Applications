@@ -1,9 +1,8 @@
-import { lookup } from 'node:dns/promises';
 import * as cheerio from 'cheerio';
 import { familyOfTitle } from '../match/taxonomy';
 import { htmlToText, parseDate, parseDeadline, safeUrl, truncate } from '../text';
 import { BOARDS, slugName } from './adapters';
-import { USER_AGENT, robotsAllow } from './http';
+import { USER_AGENT, assertPublic, robotsAllow } from './http';
 import { SourceError, SourceSkip, type RawJob, type SourceAdapter, type SourceContext } from './types';
 
 export const MAX_CAREER_PAGES = 100;
@@ -53,18 +52,8 @@ export function parseEntry(line: string): { company: string; url: string } | nul
   return { company: truncate(m[1]?.trim() || (ats ? slugName(ats.slug) : slugName(host)), 120), url };
 }
 
-// ── Safety: this fetches links that someone typed in ────────────────────────
-const PRIVATE = /^(0\.|10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|::1$|::$|f[cd]|fe80|::ffff:(10\.|127\.|192\.168\.))/i;
-
-export async function assertPublic(url: string, ctx: Pick<SourceContext, 'resolveHost'>) {
-  const u = new URL(url);
-  if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new SourceError('Only web links can be read.');
-  const host = u.hostname.replace(/^\[|\]$/g, '');
-  if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) throw new SourceError('Private network addresses cannot be read.');
-  const resolve = ctx.resolveHost ?? (async (h: string) => (await lookup(h, { all: true })).map((a) => a.address));
-  const ips = await resolve(host).catch(() => { throw new SourceError(`The website ${host} could not be found.`); });
-  if (!ips.length || ips.some((ip) => PRIVATE.test(ip))) throw new SourceError('Private network addresses cannot be read.');
-}
+// ── Safety: this fetches links that someone typed in. The guard lives in http.ts.
+export { assertPublic };
 
 class NotAllowed extends Error {}
 

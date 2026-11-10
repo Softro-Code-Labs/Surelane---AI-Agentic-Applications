@@ -14,6 +14,6 @@ export async function GET() {
     return new Response(new Uint8Array(file), { headers: { ...base, 'Content-Type': 'application/pdf', 'Content-Disposition': 'inline; filename="cv.pdf"' } });
   }
   const { value } = await mammoth.convertToHtml({ buffer: file });
-  const html = `<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 20px;color:#17302a}</style>${value}`;
+  const html = `<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 20px;color:#0e0c1c}</style>${value}`;
   return new Response(html, { headers: { ...base, 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'self'" } });
 }

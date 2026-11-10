@@ -13,6 +13,15 @@ export type JobRow = {
 
 export type JobFilters = { tier?: string; market?: string; sector?: string; mode?: string; type?: string; recent?: string };
 
+/*
+ * Lists show a card per job, not the whole advert. Leaving the description out
+ * keeps a page of 60 jobs to a few kilobytes from the database, not megabytes.
+ */
+const LIST_COLUMNS = `j.id, j.title, j.company, j.location, j.country, j.market, j.work_mode, j.sl_eligibility, j.employment_type, j.salary,
+  j.category, j.posted_at, j.deadline, j.first_seen_at, j.score, j.tier, j.scored_by, j.explanation, j.suitability, j.matching_skills,
+  j.missing_skills, j.mandatory_missing, j.requirements, j.url, j.source_label, j.sources, j.status, j.status_reason, j.verified_at,
+  j.verify_method, '' AS description, NULL AS company_info`;
+
 export async function recommended(s: Settings, f: JobFilters = {}, limit = 60): Promise<JobRow[]> {
   const where = [RECOMMENDABLE, 'j.score >= $1'];
   const params: unknown[] = [s.min_score];
@@ -28,7 +37,7 @@ export async function recommended(s: Settings, f: JobFilters = {}, limit = 60): 
   if (f.recent === '1') where.push(`COALESCE(j.posted_at, j.first_seen_at) > now() - interval '7 days'`);
   params.push(limit);
   return q<JobRow>(
-    `SELECT j.*, a.id application_id FROM jobs j LEFT JOIN applications a ON a.job_id = j.id
+    `SELECT ${LIST_COLUMNS}, a.id application_id FROM jobs j LEFT JOIN applications a ON a.job_id = j.id
      WHERE ${where.join(' AND ')} ${scopeSql(s)} ORDER BY j.score DESC, j.first_seen_at DESC LIMIT $${params.length}`, params);
 }
 

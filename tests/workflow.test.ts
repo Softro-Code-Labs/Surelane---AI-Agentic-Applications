@@ -10,7 +10,7 @@ let inbox: Sent[] = [];
 const env = () => ({ RESEND_API_KEY: API_KEY, EMAIL_FROM: 'Surelane <alerts@example.com>', APP_URL: 'https://app.example' });
 
 const at8 = () => new Date('2026-11-04T02:31:00Z'); // 08:01 Colombo
-const deps = (sources: any[], over = {}) => ({ sources, provider: null, env: env(), now: at8, sleep: async () => {}, log: () => {}, fetch: (async () => new Response('', { status: 404 })) as any, ...over });
+const deps = (sources: any[], over = {}) => ({ sources, provider: null, env: env(), now: at8, sleep: async () => {}, log: () => {}, fetch: (async () => new Response('', { status: 404 })) as any, resolveHost: async () => ['93.184.216.34'], ...over });
 const counts = async () => (await one(`SELECT count(*)::int n FROM search_runs`))!.n;
 
 beforeEach(async () => {

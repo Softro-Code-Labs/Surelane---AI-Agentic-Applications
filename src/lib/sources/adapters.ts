@@ -58,7 +58,7 @@ export function parseRss(body: string, source: string, label: string): RawJob[] 
 
 async function fetchFeed(ctx: SourceContext, url: string, id: string, label: string): Promise<RawJob[]> {
   if (!(await robotsAllow(ctx, url))) throw new SourceError(`${label}: robots.txt does not allow this feed`);
-  const res = await httpGet(ctx, url);
+  const res = await httpGet(ctx, url, { untrusted: true });
   if (!res.ok) throw feedError(label, res.status);
   return parseRss(await res.text(), id, label);
 }

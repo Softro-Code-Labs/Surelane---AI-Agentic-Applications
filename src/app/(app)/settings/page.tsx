@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const theme = (await cookies()).get('theme')?.value;
   return (
     <Page>
-      <PageHead title="Search settings" intro="These settings apply to scheduled searches and to Search now." />
+      <PageHead title="Search settings" eyebrow="Search setup" intro="These settings apply to scheduled searches and to Search now." />
       <SettingGroup id="agent" title="Agent and scope" hint="Switches save straight away.">
         <div className="divide-y divide-line">
           <SettingSwitch field="agent_enabled" initial={s.agent_enabled} label="Surelane agent" hint="Off stops every search and every job email." />

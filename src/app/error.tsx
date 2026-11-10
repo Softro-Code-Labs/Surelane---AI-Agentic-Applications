@@ -7,10 +7,10 @@ import { LoadError } from '@/components/LoadError';
 export default function RootError({ retry }: { error: unknown; retry: () => void }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="band">
-        <div className="mx-auto flex h-[60px] max-w-3xl items-center px-4 sm:px-6"><Logo className="h-[24px] w-auto sm:h-7" /></div>
+      <header className="glass sticky top-0 border-b border-line">
+        <div className="mx-auto flex h-16 max-w-3xl items-center px-4 sm:px-6"><Logo size={28} /></div>
       </header>
-      <main id="main" className="flex-1"><LoadError retry={retry} /></main>
+      <main id="main" className="flex-1 pt-6"><LoadError retry={retry} /></main>
     </div>
   );
 }

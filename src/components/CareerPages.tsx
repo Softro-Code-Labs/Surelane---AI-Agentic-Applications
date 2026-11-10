@@ -22,7 +22,7 @@ export function AddCareerPages() {
   const [refused, setRefused] = useState<{ company: string; message: string }[]>([]);
   const [note, setNote] = useState('');
   return (
-    <form className="rounded-lg bg-surface p-4 sm:p-5" onSubmit={async (e) => {
+    <form className="card card-pad" onSubmit={async (e) => {
       e.preventDefault(); setBusy(true); setError(''); setNote(''); setRefused([]);
       try {
         const r = await api('/api/career-pages', 'POST', { entries, default_location: location });
@@ -65,9 +65,9 @@ export function CareerRow({ page }: { page: PageRow }) {
   const status = page.last_status ? STATUS[page.last_status] : null;
   const refused = page.last_status === 'not_allowed';
   return (
-    <li className="py-4 first:pt-0">
+    <li className="py-4 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span className="text-[17px] font-bold">{page.company}</span>
+        <span className="text-[15px] font-semibold">{page.company}</span>
         {status ? <Tag tone={status.tone}><status.icon size={13} aria-hidden="true" className="-mt-px" />{status.label}</Tag> : <Tag>Not checked yet</Tag>}
         {page.last_status === 'ok' && <span className="text-sm text-soft">{page.last_found} {page.last_found === 1 ? 'vacancy' : 'vacancies'}</span>}
         <span className="ml-auto flex items-center gap-2">
@@ -86,7 +86,7 @@ export function CareerRow({ page }: { page: PageRow }) {
             onConfirm={async () => { await api(`/api/career-pages/${page.id}`, 'DELETE'); router.refresh(); }}><Trash2 size={16} aria-hidden="true" /></ConfirmButton>
         </span>
       </div>
-      <a href={page.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 text-sm text-soft underline underline-offset-2"><span className="truncate">{page.url}</span><ExternalLink size={12} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
+      <a href={page.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex max-w-full items-center gap-1 text-[13px] text-soft hover:text-ink"><span className="truncate">{page.url}</span><ExternalLink size={12} className="shrink-0" aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
       {page.last_message && page.last_status !== 'ok' && <p className={`measure mt-1 text-[15px] ${refused ? 'font-semibold text-stop-strong' : 'text-soft'}`}>{page.last_message}</p>}
       {titles.length > 0 && <p className="mt-1 text-sm text-soft">Found: {titles.join(', ')}</p>}
       {page.last_checked && <p className="text-[13px] text-soft">Last checked {page.last_checked}</p>}

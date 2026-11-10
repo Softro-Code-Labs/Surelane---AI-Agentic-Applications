@@ -22,7 +22,7 @@ export function ApplicationControls({ id, title, status, notes, url }: { id: str
   };
   const next = NEXT[stage];
   return (
-    <div className="mt-3 grid gap-2 sm:grid-cols-[190px_minmax(0,1fr)]">
+    <div className="mt-4 grid gap-2.5 border-t border-line pt-4 sm:grid-cols-[200px_minmax(0,1fr)]">
       <select aria-label={`Stage for ${title}`} className="field" value={stage} onChange={(e) => move(e.target.value)}>
         {[...STAGES, 'Rejected'].map((s) => <option key={s}>{s}</option>)}
       </select>
@@ -32,7 +32,7 @@ export function ApplicationControls({ id, title, status, notes, url }: { id: str
           try { await api(`/api/tracker/${id}`, 'PATCH', { notes: text }); setNote(text); toast('ok', 'Note saved.'); }
           catch (e) { toast('bad', e instanceof Error ? e.message : 'That note did not save.'); }
         }} />
-      <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+      <div className="mt-1 flex flex-wrap items-center gap-2 sm:col-span-2">
         {next && <button type="button" className="btn btn-primary btn-sm" onClick={() => move(next)}><ChevronsRight size={16} aria-hidden="true" />Move to {next}</button>}
         {url && <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-quiet btn-sm"><span>Open<span className="max-[419px]:sr-only"> listing</span></span><ExternalLink size={14} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>}
         <ConfirmButton className="btn btn-quiet btn-sm btn-icon ml-auto" label={`Remove ${title}`} title="Remove this application?" body={`${title} and your notes on it will be deleted. This cannot be undone.`} confirm="Remove"

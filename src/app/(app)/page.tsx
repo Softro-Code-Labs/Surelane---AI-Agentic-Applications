@@ -1,10 +1,10 @@
-import { ChevronRight, CircleAlert, CircleArrowRight, CircleCheck } from 'lucide-react';
+import { ArrowRight, BookmarkCheck, BriefcaseBusiness, CircleAlert, CircleArrowRight, CircleCheck, Clock3, Gauge, Sparkles, Target, TrendingUp } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { JobRow } from '@/components/JobRow';
 import { TodayLane } from '@/components/TodayLane';
-import { Empty, Page, Section } from '@/components/ui';
+import { Empty, Page, Section, Stat } from '@/components/ui';
 import { one, q } from '@/lib/db';
 import { recommended } from '@/lib/jobs';
 import { RECOMMENDABLE, SCOPE_OFF, getCv, getSettings, scopeLabel, scopeSql, searchesOff } from '@/lib/settings';
@@ -21,34 +21,53 @@ type Step = { title: string; href?: string; done: boolean; note: string };
 
 function FirstSteps({ steps }: { steps: Step[] }) {
   return (
-    <Section title="Set up your lane" hint="Three steps, then Surelane searches for you every day.">
-      <ol className="grid gap-px overflow-hidden rounded-lg bg-line sm:grid-cols-3">
+    <section className="mb-6">
+      <div className="mb-4">
+        <h2 className="text-[1.15rem] font-semibold">Set up your lane</h2>
+        <p className="text-sm text-soft">Three steps, then Surelane searches for you every day.</p>
+      </div>
+      <ol className="grid gap-3 md:grid-cols-3">
         {steps.map((s, i) => {
           const body = (
             <>
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full pt-0.5 font-bold ${s.done ? 'bg-safe-soft text-safe-strong' : 'bg-primary text-on-primary'}`}>{s.done ? <CircleCheck size={18} aria-label="Done" /> : i + 1}</span>
-              <span><span className="block font-bold">{s.title}</span><span className="text-[15px] text-soft">{s.note}</span></span>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-display font-bold ${s.done ? 'bg-safe-soft text-safe-strong' : 'brand-gradient text-white shadow-[0_6px_16px_-6px_var(--brand-glow)]'}`}>
+                {s.done ? <CircleCheck size={18} aria-label="Done" /> : i + 1}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-semibold">{s.title}</span>
+                <span className="mt-0.5 block text-sm text-soft">{s.note}</span>
+              </span>
+              {s.href && !s.done && <ArrowRight size={18} className="ml-auto mt-2 shrink-0 text-soft" aria-hidden="true" />}
             </>
           );
-          return <li key={s.title} className="bg-surface">{s.href ? <Link href={s.href} className="flex h-full gap-3 p-4 hover:bg-sunken">{body}</Link> : <div className="flex h-full gap-3 p-4">{body}</div>}</li>;
+          return (
+            <li key={s.title} className={`card card-hover ${s.done ? 'opacity-80' : ''}`}>
+              {s.href ? <Link href={s.href} className="flex h-full gap-3 rounded-2xl p-5">{body}</Link> : <div className="flex h-full gap-3 p-5">{body}</div>}
+            </li>
+          );
         })}
       </ol>
-    </Section>
+    </section>
   );
 }
 
 function Need({ href, tone, children }: { href: string; tone: 'do' | 'look' | 'stop'; children: ReactNode }) {
-  const color = tone === 'do' ? 'text-road' : tone === 'look' ? 'text-warn' : 'text-stop';
+  const style = tone === 'do' ? 'bg-info-soft text-primary' : tone === 'look' ? 'bg-warn-soft text-warn' : 'bg-stop-soft text-stop';
   const Icon = tone === 'do' ? CircleArrowRight : CircleAlert;
   return (
     <li>
-      <Link href={href} className="flex items-center gap-3 py-3 font-semibold hover:text-road">
-        <Icon size={20} className={`-mt-0.5 shrink-0 ${color}`} aria-hidden="true" />
+      <Link href={href} className="group flex items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-semibold hover:bg-sunken">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${style}`}><Icon size={17} aria-hidden="true" /></span>
         <span className="flex-1">{children}</span>
-        <ChevronRight size={18} className="shrink-0 text-soft" aria-hidden="true" />
+        <ArrowRight size={16} className="shrink-0 text-soft transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
       </Link>
     </li>
   );
+}
+
+function greeting(now: Date) {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Colombo' }).format(now));
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 }
 
 export default async function Today() {
@@ -79,7 +98,6 @@ export default async function Today() {
   const area = scopeLabel(s);
   const subtitle = !s.agent_enabled ? 'No searches run and no job emails are sent until you turn it back on. Your schedule stays saved.' : !cv ? 'Surelane searches three times a day once it knows what fits you.' : searchesOff(s) ? SCOPE_OFF : !next ? 'Turn on a time below to resume automatic searches.' : `Sri Lanka time. Searching ${area}.`;
   const strong = Number(stats.strong);
-  const figures: [string, string | number][] = [['Jobs discovered', stats.total!], ['New today', stats.today!], ['Strong', stats.strong!], ['Good', stats.good!], ['Potential', stats.potential!], ['Saved jobs', saved]];
   const setupDone = Boolean(cv) && Boolean(last);
   const steps: Step[] = [
     { title: 'Upload your CV', href: '/cv', done: Boolean(cv), note: 'Surelane reads it to learn what fits you.' },
@@ -87,53 +105,74 @@ export default async function Today() {
     { title: 'Run your first search', done: Boolean(last), note: cv ? 'Press Search at the top of the page, or wait for the next search time.' : 'You can do this once your CV is in.' },
   ];
   const lastBad = last && (last.status === 'failed' || last.status === 'partial');
+  const needs = strong > 0 || closing > 0 || unreadable > 0 || lastBad || emailProblem;
 
   return (
-    <>
-      <section className="band overflow-x-clip pb-5 sm:pb-3">
-        <div className="mx-auto max-w-[1120px] px-4 sm:px-6">
-          <div className="pb-4 pt-6 sm:pb-6 sm:pt-8">
-            <h1 className="text-[2rem] sm:text-[2.5rem]">{title}</h1>
-            <p className="mt-1 text-on-band-soft">{subtitle}</p>
-            {!cv && <Link href="/cv" className="btn btn-band mt-4">Upload your CV</Link>}
+    <Page>
+      <section className="band band-grid mb-6 overflow-hidden rounded-3xl px-5 pb-5 pt-6 shadow-[var(--shadow-lg)] sm:px-8 sm:pt-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="text-sm font-medium text-on-band-soft">{greeting(now)} · {formatColombo(now, 'date')}</p>
+            <h1 className="mt-1 text-[1.75rem] text-white sm:text-[2.25rem]">{title}</h1>
+            <p className="mt-1.5 text-[15px] text-on-band-soft">{subtitle}</p>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {!cv ? <Link href="/cv" className="btn btn-band btn-lg">Upload your CV<ArrowRight size={16} aria-hidden="true" /></Link>
+              : strong > 0 ? <Link href="/jobs?tier=Strong" className="btn btn-band">See {plural(strong, 'strong match', 'strong matches')}<ArrowRight size={16} aria-hidden="true" /></Link>
+                : <Link href="/jobs" className="btn btn-band">Browse jobs<ArrowRight size={16} aria-hidden="true" /></Link>}
+          </div>
+        </div>
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[.04] px-4 pt-4 sm:px-8 sm:pt-6">
           <TodayLane slots={slots} agentOn={s.agent_enabled} now={pos(nowMin)} />
         </div>
       </section>
 
-      <Page>
-        {!setupDone ? <FirstSteps steps={steps} /> : (
-          <div className="grid gap-x-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:grid-rows-[auto_1fr]">
-            <div className="lg:col-start-2 lg:row-start-1">
-              <Section title="Needs you">
-                {(strong > 0 || closing > 0 || unreadable > 0 || lastBad || emailProblem) ? (
-                  <ul className="-mt-2 divide-y divide-line">
+      {!setupDone ? <FirstSteps steps={steps} /> : (
+        <>
+          <dl className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {([
+              ['Jobs discovered', stats.total, BriefcaseBusiness, 'info'], ['New today', stats.today, Sparkles, 'info'], ['Strong', stats.strong, Target, 'safe'],
+              ['Good', stats.good, TrendingUp, 'info'], ['Potential', stats.potential, Gauge, 'plain'], ['Saved jobs', saved, BookmarkCheck, 'warn'],
+            ] as const).map(([label, value, icon, tone]) => <Stat key={label} label={label} value={value} icon={icon} tone={tone} />)}
+          </dl>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[1.15rem] font-semibold">Your best matches</h2>
+                {top.length > 0 && <Link href="/jobs" className="inline-flex items-center gap-1 text-sm font-semibold text-road hover:underline">All jobs<ArrowRight size={14} aria-hidden="true" /></Link>}
+              </div>
+              {top.length ? <div className="space-y-3">{top.map((j) => <JobRow key={j.id} job={j} />)}</div>
+                : <Empty title="No matches to show yet" icon={BriefcaseBusiness}>New matches appear here after the next search. A vacancy is shown only once it is confirmed open.</Empty>}
+            </div>
+            <div className="space-y-5">
+              <Section title="Needs you" className="!mb-0">
+                {needs ? (
+                  <ul className="-mx-2 -mt-1 space-y-0.5">
                     {closing > 0 && <Need href="/tracker" tone="look">{plural(closing, 'saved job closes', 'saved jobs close')} within 7 days</Need>}
                     {strong > 0 && <Need href="/jobs?tier=Strong" tone="do">Review {plural(strong, 'strong match', 'strong matches')}</Need>}
                     {lastBad && <Need href="/history" tone="look">The last search had a problem</Need>}
                     {emailProblem && <Need href="/settings#email" tone="look">The last email could not be sent</Need>}
                     {unreadable > 0 && <Need href="/careers" tone="look">{plural(unreadable, 'career page', 'career pages')} can&apos;t be read</Need>}
                   </ul>
-                ) : <p className="text-soft">Nothing right now. Surelane keeps searching for you.</p>}
+                ) : (
+                  <p className="flex items-center gap-2 text-sm text-soft"><CircleCheck size={18} className="text-safe" aria-hidden="true" />All clear. Surelane keeps searching for you.</p>
+                )}
               </Section>
-            </div>
-            <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-              <Section title="Your best matches" aside={top.length > 0 ? <Link href="/jobs" className="link text-[15px]">All jobs</Link> : undefined}>
-                {top.length ? <div className="-mt-3">{top.map((j) => <JobRow key={j.id} job={j} />)}</div>
-                  : <Empty title="No matches to show yet">New matches appear here after the next search. A vacancy is shown only once it is confirmed open.</Empty>}
-              </Section>
-            </div>
-            <div className="lg:col-start-2 lg:row-start-2">
-              <Section title="Your numbers">
-                <dl className="grid grid-cols-3 gap-x-3 gap-y-4 lg:grid-cols-2">
-                  {figures.map(([label, value]) => <div key={label} className="flex flex-col-reverse"><dt className="text-sm text-soft">{label}</dt><dd className="text-[1.75rem] font-bold leading-none tabular">{value}</dd></div>)}
-                </dl>
-                <p className="mt-4 text-sm text-soft">Last search: {last ? formatColombo(last.started_at) : 'none yet'}. <Link href="/sources" className="link">See which sites are searched</Link></p>
-              </Section>
+              <div className="card card-pad">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sunken text-soft"><Clock3 size={18} aria-hidden="true" /></span>
+                  <div>
+                    <p className="text-[13px] text-soft">Last search</p>
+                    <p className="font-semibold">{last ? formatColombo(last.started_at) : 'None yet'}</p>
+                  </div>
+                </div>
+                <Link href="/sources" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-road hover:underline">See which sites are searched<ArrowRight size={14} aria-hidden="true" /></Link>
+              </div>
             </div>
           </div>
-        )}
-      </Page>
-    </>
+        </>
+      )}
+    </Page>
   );
 }

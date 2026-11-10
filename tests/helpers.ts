@@ -10,7 +10,7 @@ export const profile = () => analyseCv(cvText, new Date('2026-11-04T00:00:00Z'))
 
 export async function resetDb() {
   await pool().query(schema);
-  await pool().query(`TRUNCATE users, settings, cv, applications, career_pages, jobs, search_runs, search_run_sources, search_requests,
+  await pool().query(`TRUNCATE users, settings, cv, cover_letter, applications, career_pages, jobs, search_runs, search_run_sources, search_requests,
     search_results, notifications, ai_tasks, cleanup_runs, sessions, login_attempts RESTART IDENTITY CASCADE`);
   await q(`INSERT INTO settings (id, schedule_changed_at) VALUES (1, '2026-01-01')`);
   await q(`UPDATE app_state SET value='0' WHERE key='records_deleted_lifetime'`);

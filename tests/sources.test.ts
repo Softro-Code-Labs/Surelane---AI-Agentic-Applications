@@ -23,7 +23,7 @@ function ctx(routes: Record<string, (init?: RequestInit) => Response>, over: Par
       return new Response('', { status: 404 });
     }) as typeof fetch,
     sleep: async () => {}, now: new Date('2026-11-05T00:00:00Z'), keywords: ['software engineer'],
-    settings: { global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), ...over,
+    settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {}, robotsCache: new Map(), ...over,
   };
 }
 const json = (d: unknown, status = 200) => () => new Response(JSON.stringify(d), { status });
@@ -142,7 +142,7 @@ describe('page checks and robots', () => {
 describe('expired and scope filtering', () => {
   const now = new Date('2026-11-05T00:00:00Z');
   const base = { source: 's', sourceLabel: 's', url: 'https://x.test', title: 'Dev', company: 'A', location: 'Colombo', description: 'Good job', postedAt: new Date('2026-11-01') };
-  const s = { global_enabled: false, max_post_age_days: 30, remote_pref: 'any', preferred_countries: [] };
+  const s = { local_enabled: true, global_enabled: false, max_post_age_days: 30, remote_pref: 'any', preferred_countries: [] };
   const reject = (j: any, settings = s) => { const c = classify({ ...base, ...j }); return rejectReason({ ...base, ...j }, c.market, c.workMode, c.slEligibility, settings, now); };
 
   it('accepts a live local job', () => expect(reject({})).toBeNull());
@@ -150,10 +150,14 @@ describe('expired and scope filtering', () => {
   it('excludes closed wording', () => expect(reject({ description: 'This position has been filled.' })?.kind).toBe('closed'));
   it('excludes outdated listings', () => expect(reject({ postedAt: new Date('2026-09-01') })?.kind).toBe('outdated'));
   it('keeps an old post whose deadline is still ahead', () => expect(reject({ postedAt: new Date('2026-09-01'), deadline: new Date('2026-12-01') })).toBeNull());
-  it('Global OFF keeps Sri Lanka and eligible remote only', () => {
-    expect(reject({ location: 'Berlin, Germany' })?.kind).toBe('scope');
-    expect(reject({ location: 'Remote, USA', workMode: 'remote', slEligibility: 'no' })?.kind).toBe('scope');
-    expect(reject({ location: 'Worldwide', workMode: 'remote', slEligibility: 'yes' })).toBeNull();
+  it('Local and Global each let in only their own jobs', () => {
+    const local = {}, berlin = { location: 'Berlin, Germany' }, remote = { location: 'Worldwide', workMode: 'remote', slEligibility: 'yes' };
+    const kinds = (settings: typeof s) => [local, berlin, remote].map((j) => reject(j, settings)?.kind ?? 'kept');
+    expect(kinds({ ...s, local_enabled: true, global_enabled: false })).toEqual(['kept', 'scope', 'scope']);
+    expect(kinds({ ...s, local_enabled: false, global_enabled: true })).toEqual(['scope', 'kept', 'kept']);
+    expect(kinds({ ...s, local_enabled: true, global_enabled: true })).toEqual(['kept', 'kept', 'kept']);
+    expect(kinds({ ...s, local_enabled: false, global_enabled: false })).toEqual(['scope', 'scope', 'scope']);
+    expect(reject({ location: 'Remote, USA', workMode: 'remote', slEligibility: 'no' })?.reason).toMatch(/Global job opportunities are off/);
   });
   it('Global ON allows and labels international jobs', () => {
     expect(reject({ location: 'Berlin, Germany' }, { ...s, global_enabled: true })).toBeNull();

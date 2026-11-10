@@ -35,7 +35,7 @@ jobs:
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       EMAIL_FROM: ${{ vars.EMAIL_FROM }}
       AI_PROVIDER: ${{ vars.AI_PROVIDER }}
-      OLLAMA_MODEL: ${{ vars.OLLAMA_MODEL || 'gemma3:1b' }}
+      OLLAMA_MODEL: ${{ vars.OLLAMA_MODEL || 'qwen3:1.7b' }}
       AI_MAX_JOBS_PER_RUN: ${{ vars.AI_MAX_JOBS_PER_RUN }}
       AI_TIME_BUDGET_SECONDS: ${{ vars.AI_TIME_BUDGET_SECONDS }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

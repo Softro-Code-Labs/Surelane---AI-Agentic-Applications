@@ -5,7 +5,7 @@ import { one, q } from './db';
 
 export type Settings = {
   agent_enabled: boolean; slot_morning: boolean; slot_midday: boolean; slot_evening: boolean; schedule_changed_at: Date;
-  global_enabled: boolean; preferred_countries: string[]; preferred_locations: string[]; industries: string[];
+  local_enabled: boolean; global_enabled: boolean; preferred_countries: string[]; preferred_locations: string[]; industries: string[];
   categories: string[]; extra_keywords: string[]; remote_pref: 'any' | 'remote' | 'hybrid' | 'onsite';
   min_score: number; max_post_age_days: number; custom_feeds: string[];
   email_enabled: boolean; email_recipient: string | null; email_mode: 'all' | 'strong'; email_no_results: 'summary' | 'silent';
@@ -19,7 +19,7 @@ export async function getSettings(): Promise<Settings> {
 const list = z.array(z.string().trim().min(1).max(200)).max(50);
 export const settingsPatch = z.object({
   agent_enabled: z.boolean(), slot_morning: z.boolean(), slot_midday: z.boolean(), slot_evening: z.boolean(),
-  global_enabled: z.boolean(), preferred_countries: list, preferred_locations: list, industries: list, categories: list,
+  local_enabled: z.boolean(), global_enabled: z.boolean(), preferred_countries: list, preferred_locations: list, industries: list, categories: list,
   extra_keywords: list, remote_pref: z.enum(['any', 'remote', 'hybrid', 'onsite']),
   min_score: z.number().int().min(45).max(95), max_post_age_days: z.number().int().min(1).max(90),
   custom_feeds: list, email_enabled: z.boolean(),
@@ -61,4 +61,21 @@ export const RECOMMENDABLE = `
   AND (j.verified_at > now() - interval '72 hours' OR j.source = 'manual')
   AND j.tier IS NOT NULL`;
 
-export const scopeSql = (s: Pick<Settings, 'global_enabled'>) => (s.global_enabled ? '' : `AND j.market <> 'international'`);
+/*
+ * Local means a job in Sri Lanka (market sri_lanka). Global means a job with an
+ * employer abroad: an overseas role, or an international remote role that people
+ * in Sri Lanka can apply for (markets remote_lk and international).
+ */
+export type Scope = Pick<Settings, 'local_enabled' | 'global_enabled'>;
+export const isLocalMarket = (market: string) => market === 'sri_lanka';
+export const searchesOff = (s: Scope) => !s.local_enabled && !s.global_enabled;
+export const SCOPE_OFF = 'Local and Global job opportunities are both off. Turn on at least one in Search settings, and searches start again.';
+
+export const scopeSql = (s: Scope) => (s.local_enabled && s.global_enabled ? ''
+  : s.local_enabled ? `AND j.market = 'sri_lanka'`
+  : s.global_enabled ? `AND j.market <> 'sri_lanka'`
+  : 'AND false');
+
+/** Plain words for what is being searched. */
+export const scopeLabel = (s: Scope) => (s.local_enabled && s.global_enabled ? 'Sri Lanka and global'
+  : s.local_enabled ? 'Sri Lanka only' : s.global_enabled ? 'global only' : 'nothing');

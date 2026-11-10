@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { SettingSwitch, SignOut } from '@/components/controls';
 import { SettingsForm, ThemeControl } from '@/components/Forms';
-import { Page, PageHead, SettingGroup } from '@/components/ui';
+import { Notice, Page, PageHead, SettingGroup } from '@/components/ui';
 import { lastEmailProblem } from '@/lib/notify/email';
 import { SLOTS } from '@/lib/schedule';
-import { getSettings } from '@/lib/settings';
+import { SCOPE_OFF, getSettings, searchesOff } from '@/lib/settings';
 
 export const metadata: Metadata = { title: 'Search settings' };
 
@@ -15,11 +15,13 @@ export default async function SettingsPage() {
   const theme = (await cookies()).get('theme')?.value;
   return (
     <Page>
-      <PageHead title="Search settings" intro="Sri Lanka is always searched. These settings apply to scheduled searches and to Search now." />
+      <PageHead title="Search settings" intro="These settings apply to scheduled searches and to Search now." />
       <SettingGroup id="agent" title="Agent and scope" hint="Switches save straight away.">
         <div className="divide-y divide-line">
           <SettingSwitch field="agent_enabled" initial={s.agent_enabled} label="Surelane agent" hint="Off stops every search and every job email." />
-          <SettingSwitch field="global_enabled" initial={s.global_enabled} label="Include Global Job Opportunities" hint="Adds overseas and international remote roles." />
+          <SettingSwitch field="local_enabled" initial={s.local_enabled} label="Include Local Job Opportunities" hint="Jobs in Sri Lanka, from Sri Lankan and government job sites, employers here and Sri Lanka filters on sites like Himalayas." />
+          <SettingSwitch field="global_enabled" initial={s.global_enabled} label="Include Global Job Opportunities" hint="Jobs with employers abroad: overseas roles, and international remote roles open to people in Sri Lanka." />
+          {searchesOff(s) && <div className="pt-3"><Notice tone="warn" role="status">{SCOPE_OFF}</Notice></div>}
           <SettingSwitch field="email_enabled" initial={s.email_enabled} label="Email me new matches" hint="Sent after scheduled searches." />
         </div>
       </SettingGroup>

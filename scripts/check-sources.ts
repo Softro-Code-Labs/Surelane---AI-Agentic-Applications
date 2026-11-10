@@ -7,7 +7,7 @@ const pages = (process.env.CHECK_BOARDS ?? 'lever:aleph').split(',').flatMap((e,
   const p = parseEntry(e);
   return p ? [{ id: String(i), company: p.company, url: p.url, default_location: 'Sri Lanka' }] : [];
 });
-const settings = { global_enabled: true, custom_feeds: [] as string[] };
+const settings = { local_enabled: true, global_enabled: true, custom_feeds: [] as string[] };
 const ctx: SourceContext = {
   fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)), now: new Date(),
   keywords: (process.env.CHECK_KEYWORDS ?? 'software engineer,accountant').split(','),

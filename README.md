@@ -11,7 +11,7 @@ It costs nothing to run. GitHub and cron-job.org are confirmed to work with no c
 | Today | The next search, your three search times, what needs you, your best matches and your numbers. |
 | Jobs | Every open match, with filters. **Add a job you found** is here too. |
 | Applications | Saved jobs by stage, with notes, deadlines and cover letters. |
-| You | My CV and Career insights. |
+| You | My CV, Cover letter and Career insights. |
 | Search setup | Search settings, Career pages, Job sources, Search history and Storage. |
 
 On a phone, these five sit in a tab bar at the bottom, and you can add Surelane to your home screen from the browser menu. To choose light, dark or match your device, open **Search setup > Search settings > Appearance**.
@@ -42,11 +42,40 @@ The app has no public sign-up: the first account closes registration, and that a
 
 ## What it can search
 
-**Searched automatically:** ITPro.lk (RSS), Himalayas, Jobicy, Remotive, Remote OK (only with Global on), the company career pages on your list, RSS feeds you add, and Jooble once you have a free key.
+**Local and Global.** **Search setup > Search settings** has two switches:
 
-**Not searched:** LinkedIn, Indeed, Glassdoor, TopJobs.lk, Rooster, XpressJobs, JobMasters.lk and Finders.lk. None offers permitted automated access that could be confirmed. The agent never reports them as checked. **Search setup > Job sources** has a one-click search link for each, and **Add a job you found** scores anything you find there.
+| Switch | What it searches |
+|---|---|
+| **Include Local Job Opportunities** | Jobs in Sri Lanka: Sri Lankan and government job sites, Sri Lanka searches on platforms that cover both (Himalayas, Jooble, Indeed and LinkedIn), and Sri Lankan jobs on your career pages and feeds. |
+| **Include Global Job Opportunities** | Jobs with employers abroad: overseas roles, and international remote roles that people in Sri Lanka can apply for. Covers Jobicy, Remotive, Remote OK, and worldwide searches on Himalayas, Jooble and LinkedIn. |
 
-**Coverage warning:** ITPro.lk is IT-focused and the others are mostly remote roles. If your field is not IT, Sri Lankan coverage will be thin until you add Jooble and the career pages of employers you care about.
+Turn on either one or both. With both off, no searches run until you turn one back on, and Today, Jobs and the Search button say so. New installs start with Local on and Global off.
+
+A job counts as local when it is in Sri Lanka, including a remote role an employer advertises for Sri Lanka only. A remote role with an employer abroad counts as global, even when it is open to people in Sri Lanka.
+
+**Searched automatically:**
+
+- **Local:** ITPro.lk (RSS), Jobpal.lk (its job feed, all fields) and the government vacancy feeds of Govjobs.lk and Govdoc Jobs.
+- **Global:** Jobicy, Remotive and Remote OK.
+- **Both, filtered by your switches:** Himalayas, Jooble (once you have a free key), the company career pages on your list, and RSS feeds you add.
+
+**Not searched:** LinkedIn, Indeed, Glassdoor and these Sri Lankan sites: TopJobs.lk, ikman Jobs, XpressJobs, Rooster Jobs, JobMasters.lk, DreamJobs.lk, Observer Jobs, Finders.lk, Rakiya.lk, Agency.lk, BetterJobs.lk, Jobify.lk and LankaTalentHub, and the government sites GovernmentJobs.lk, GovHub Jobs and JobsLanka. Each one forbids automated reading in its terms, refuses automated tools, or offers no feed or API that permitted access could be confirmed for. **Search setup > Job sources** gives each site's reason. The agent never reports them as checked.
+
+**Searching them yourself.** **Jobs** has a **Search more job sites with your CV** panel, so you don't have to type the same searches on every site:
+
+- **LinkedIn:** up to 8 ready-made searches, built from your CV's target roles, top skills and experience level, and from your search settings (location, remote preference and how recent). With Local on they search Sri Lanka, and with Global on they search your preferred countries and worldwide remote jobs. With both on, the two groups are listed separately, and at least 3 of the 8 are global. The filters use the codes LinkedIn's own search page puts in its links. LinkedIn doesn't publish them, so if it renames one, that filter is ignored and the search still opens.
+- **Government sites**, in their own group: Govjobs.lk, Govdoc Jobs, GovernmentJobs.lk, GovHub Jobs and JobsLanka. Government job titles rarely match private-sector CV wording, so each site also has a **Latest vacancies** link. GovernmentJobs.lk filters only by institution and Govdoc Jobs has no working search, so they get only that link.
+- **International platforms:** Indeed, Glassdoor, Jooble, Himalayas, Jobicy, Remotive and Remote OK. Indeed, Jooble and Himalayas get Sri Lanka searches with Local on and worldwide searches with Global on. The others are global only. Jooble, Himalayas, Jobicy, Remotive and Remote OK are also searched automatically, but the links reach further back. Indeed and Glassdoor ask automated tools not to open their search pages, and Jooble and Himalayas refused the check, so those four links use each site's public address format and couldn't be tested. Remote OK searches by tag, so it gets links only for one-word skills such as React.
+- Sri Lankan and government sites appear only with Local on.
+- **Sri Lankan sites:** for each site, one button per top role or skill. Your preferred district and a remote-only preference are added where the site can filter by them. TopJobs.lk and Rooster Jobs have no search address that could be confirmed, so their buttons open the site's job list. Rakiya.lk's address comes from the site's own published search template, but it refuses automated tools, so that link couldn't be tested.
+
+Surelane can't read these sites, so it can't score what they show. When a job looks good, copy its link, choose **Add a job you found**, and paste in the title, company, location and description. Surelane then scores it against your CV, and you can track it in Applications. Any LinkedIn job link works, including one copied from the address bar of a search page. Tracking codes are removed, and adding the same job twice opens the one you already have.
+
+The checks behind these decisions were made in November 2026. A site can change its terms, so recheck them before any commercial use.
+
+**Government jobs.** Jobs from Govjobs.lk and Govdoc Jobs are marked **Government**, and **Jobs** has a **Sector** filter to show only government or only private jobs. Govjobs.lk gives each vacancy's closing date. Govdoc Jobs doesn't, so check the date on the linked page. Both feeds hold only their newest posts, so use the site links on **Jobs** to look further back.
+
+**Coverage warning:** ITPro.lk is IT-focused, Jobpal.lk covers every field but posts a few jobs a day, and the others are mostly remote roles. If your field is not IT, use the site searches on **Jobs**, and add Jooble and the career pages of employers you care about.
 
 ## Setup, about 45 minutes
 
@@ -128,6 +157,17 @@ In GitHub, run **Actions > check-sources**. It calls every source once and print
 
 - **Jooble:** request a free key on its API page, then add the `JOOBLE_API_KEY` secret in GitHub. Check whether it returns useful Sri Lankan jobs for your field, because that could not be confirmed.
 
+## Cover letters
+
+Open **You > Cover letter** to save your own cover letter. Upload a PDF, DOCX or text file, or paste it, and edit it there any time. It's encrypted in your database like your CV, kept until you remove it, and left out of the 30-day cleanup. Template blanks such as `[Company Name]` or `[Position]` are fine: they're filled in for each job.
+
+On any job, the **Cover letter** section then offers two choices:
+
+- **Tailor my cover letter** starts from your own letter. With an AI model, it rewrites the letter for the job, keeping your tone, phrasing and facts, and invents nothing. Without one, the built-in engine keeps your letter as you wrote it. It fills the blanks, replaces the opening with one naming this role and company, and adds one line on the skills you share with the job.
+- **Write a new one** writes a letter from your CV, as before.
+
+Without a saved letter, cover letters are written from your CV. A tailored letter belongs to one version of your letter, so editing your letter makes the next one fresh. Before your letter reaches a cloud model such as Gemini, your email, phone number, links and name are removed; your name is put back in the result. Always read a letter before sending it.
+
 ## Company career pages
 
 Open **Search setup > Career pages**, paste one link per line, and choose **Add and check**. Each link is checked straight away, then at every search time. You can list up to 100 companies. To name one yourself, write `Company name, https://link`.
@@ -154,21 +194,46 @@ If a page doesn't state a location, jobs are marked with the location you chose,
 
 Your list is kept until you delete it, and isn't part of the 30-day cleanup.
 
-## Local AI
+## Local AI (free and open source)
 
-Set `AI_PROVIDER=ollama` as a GitHub variable and in Vercel. Each search then installs Ollama on the runner, restores the `gemma3:1b` model (about 815 MB) from cache, and uses it to refine the top matches and write better cover letters and summaries.
+Set `AI_PROVIDER=ollama` as a GitHub variable and in Vercel. Each search then starts [Ollama](https://ollama.com) (MIT licence) on GitHub's runner, restores the model from cache, and uses it to:
 
-- **No hardware needed from you:** it runs on GitHub's 2-core, 8 GB runner, so your CV stays on your own infrastructure.
-- **Speed:** expect roughly 20 to 40 seconds a job. This is an estimate, not a measurement. The run stops refining after `AI_TIME_BUDGET_SECONDS` (default 420), and remaining jobs keep their built-in score.
-- **Quality:** a 1 GB model is modest. It can reword and sense-check, but it isn't equal to a large cloud model. Its score is averaged with the built-in score rather than replacing it.
-- **Minutes:** with AI, plan on about 1,150 of your 2,000 monthly minutes. Without it, about 500. Heavy use of Search now adds to this.
-- **On your own computer:** a better machine can run a larger model, such as Phi-4 Mini, but the computer must be on at search time.
+- add a headline, summary and suggested job titles to your CV profile (facts always come from your CV itself)
+- give a second opinion on your top matches, with a plain explanation
+- write cover letters, tailor your own letter, summarise jobs, and suggest CV improvements and career paths.
 
-If the model cannot start, the search still runs on the built-in engine, and every result shows which engine scored it.
+The default model is **Qwen 3 1.7B** (`qwen3:1.7b`, about 1.4 GB). It is under the Apache 2.0 open-source licence, which allows any use, including commercial. It's clearly more capable than the earlier default (Gemma 3 1B), and still small enough for GitHub's free runner. Its thinking mode is switched off, because it is slow on 2 CPU cores and breaks the JSON the app expects.
+
+**What it costs: nothing.** Every part is free:
+
+| Part | Cost | Why there's no surprise bill |
+|---|---|---|
+| Ollama | Free (MIT licence) | Installed fresh on each run |
+| Qwen 3 1.7B | Free (Apache 2.0) | Downloaded once from Ollama's free registry, then cached |
+| Model cache | Free | It uses about 1.4 GB of GitHub's free 10 GB cache per repository |
+| GitHub Actions minutes | Free within 2,000 a month | Plan on about 1,150 a month with AI, or about 500 without. With no card on GitHub, going over stops the runs instead of charging. |
+| API keys | None needed | Nothing is sent outside your own GitHub runner and database |
+
+**Speed and limits.** The runner has 2 CPU cores, so expect very roughly 20 to 60 seconds a job; this is an estimate, not a measurement. Each search reviews up to 12 top matches (`AI_MAX_JOBS_PER_RUN`) for at most 7 minutes (`AI_TIME_BUDGET_SECONDS`, default 420), then spends up to 4 minutes on queued cover letters and summaries. These caps keep minutes flat whichever model you use. A bigger model doesn't cost more; it just finishes fewer jobs within the same time.
+
+**Quality.** A small model is a helpful second opinion, not an expert. Its score counts for half of a job's score, and the built-in score is the other half. Cover letters and summaries are clearly better than the built-in versions, but read them before sending.
+
+**Other free, open-source models.** Set the `OLLAMA_MODEL` variable in GitHub to try one:
+
+| Model | Licence | Size | Trade-off |
+|---|---|---|---|
+| `qwen3:1.7b` (default) | Apache 2.0 | 1.4 GB | Best balance on the free runner |
+| `granite4:3b` | Apache 2.0 | 2.1 GB | Better writing, about twice as slow, so fewer jobs per search. A long cover letter may hit the 3-minute limit per request and fall back to the built-in version. |
+| `phi4-mini` | MIT | 2.5 GB | Similar trade-off to Granite 4 3B |
+| `gemma3:1b` (earlier default) | Gemma Terms (free, not open source) | 0.8 GB | Fastest, weakest |
+
+**On your own computer.** If you run the worker yourself (see Running it yourself) on a machine with more memory or a graphics card, a larger open model such as `qwen3:8b` gives much better results. The computer must be on at search time.
+
+If Ollama or the model can't start, the search still runs on the built-in engine, and every result shows which engine scored it.
 
 **Built-in engine (no AI model):** the app works fully with `AI_PROVIDER` unset. Scoring, explanations, cover letters and summaries all come from rules, so they are plainer but free, instant and private.
 
-**Gemini (optional, cloud):** its free tier currently allows about 500 requests a day on `gemini-3.5-flash-lite`. Google's own pricing page says free-tier content is **used to improve its products**. The app removes your name, email and phone first, but your experience and skills are still sent. Leave it off if that concerns you.
+**Gemini (optional, cloud, not open source):** off unless you set `AI_PROVIDER=gemini` and a `GEMINI_API_KEY`. Its free tier needs no card, and requests over the limit are refused, not charged. But it isn't open source, and Google's pricing page says free-tier content is **used to improve its products**. The app removes your name, email, phone and links first, but your experience and skills are still sent. The local model above is the recommended choice.
 
 ## How your rules work
 
@@ -176,7 +241,7 @@ If the model cannot start, the search still runs on the built-in engine, and eve
 
 **Agent switch.** Off means no scheduled searches, no Search now, and no job emails. A search already running stops at its next step and sends nothing. Daily cleanup keeps running while the agent is off, because it is maintenance, not a search.
 
-**Emails.** Sent only after scheduled searches. Jobs found by Search now go out with the next scheduled email. No job is emailed twice. If an email fails, its jobs wait for the next scheduled email, **Needs you** on Today says so, and the reason appears under Email in Search settings. Emails go through Resend, which lists 30-day data retention on its free plan. They carry job matches and skill notes, never your CV.
+**Emails.** Sent only after scheduled searches. With Local and Global both on, one email holds two separate, labelled sections: **Local Job Opportunities (Sri Lanka)** and **Global Job Opportunities (International)**. Each section has its own list and its own limit of 25 jobs, so one can't crowd out the other. With only one switch on, the email has only that section. Jobs found by Search now go out with the next scheduled email. No job is emailed twice. If an email fails, its jobs wait for the next scheduled email, **Needs you** on Today says so, and the reason appears under Email in Search settings. Emails go through Resend, which lists 30-day data retention on its free plan. They carry job matches and skill notes, never your CV.
 
 **Active vacancies.** A job is only recommended if all of these hold:
 - Its deadline has not passed, and it isn't marked closed, filled or expired.

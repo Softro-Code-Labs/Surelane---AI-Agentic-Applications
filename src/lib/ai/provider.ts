@@ -4,11 +4,23 @@ import { tierFor, type MatchResult } from '../match/score';
 import { redactPii, truncate } from '../text';
 
 export type Provider = {
-  id: string;            // e.g. ollama:gemma3:1b
+  id: string;            // e.g. ollama:qwen3:1.7b
   cloud: boolean;        // true means text leaves your own infrastructure
   paceMs: number;
   complete: (prompt: string, opts?: { json?: boolean; maxTokens?: number }) => Promise<string>;
+  /** Share of a job's score that comes from this model; the rest is the built-in score. Default 0.5. */
+  scoreWeight?: number;
+  /** How much of a job description the model is shown. Default 1800 characters. */
+  jobChars?: number;
 };
+
+/** Free, open-source (Apache 2.0) and small enough for GitHub's free 2-core runner. */
+export const DEFAULT_OLLAMA_MODEL = 'qwen3:1.7b';
+
+/** Removes a reasoning model's private notes, in case its thinking could not be switched off. */
+export function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
+}
 
 type Env = Record<string, string | undefined>;
 
@@ -21,29 +33,37 @@ export async function getProvider(env: Env = process.env, f: typeof fetch = fetc
   const kind = (env.AI_PROVIDER || 'rules').toLowerCase();
   if (kind === 'ollama') {
     const base = (env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
-    const model = env.OLLAMA_MODEL || 'gemma3:1b';
+    const model = env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
     const up = await f(`${base}/api/tags`, { signal: AbortSignal.timeout(5000) }).then((r) => r.ok).catch(() => false);
     if (!up) return null;
+    // Reasoning models such as Qwen 3 think aloud by default, which is slow on 2 CPU cores and breaks JSON.
+    // Thinking is switched off, and dropped from the request for models that do not support the switch.
+    let canSwitchThinking = true;
     return {
-      id: `ollama:${model}`, cloud: false, paceMs: 0,
+      id: `ollama:${model}`, cloud: false, paceMs: 0, scoreWeight: 0.5, jobChars: 2400,
       complete: async (prompt, opts = {}) => {
-        const res = await f(`${base}/api/chat`, {
+        const ask = (thinkingOff: boolean) => f(`${base}/api/chat`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(180_000),
           body: JSON.stringify({
-            model, stream: false, ...(opts.json ? { format: 'json' } : {}),
-            options: { temperature: 0.2, num_predict: opts.maxTokens ?? 400, num_ctx: 3072 },
+            model, stream: false, ...(thinkingOff ? { think: false } : {}), ...(opts.json ? { format: 'json' } : {}),
+            options: { temperature: 0.2, num_predict: opts.maxTokens ?? 400, num_ctx: 4096 },
             messages: [{ role: 'user', content: prompt }],
           }),
         });
+        let res = await ask(canSwitchThinking);
+        if (!res.ok && canSwitchThinking && res.status === 400 && /think/i.test(await res.clone().text().catch(() => ''))) {
+          canSwitchThinking = false;
+          res = await ask(false);
+        }
         if (!res.ok) throw new Error(`Ollama returned HTTP ${res.status}`);
-        return String(((await res.json()) as any).message?.content ?? '');
+        return stripThinking(String(((await res.json()) as any).message?.content ?? ''));
       },
     };
   }
   if (kind === 'gemini' && env.GEMINI_API_KEY) {
     const model = env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
     return {
-      id: `gemini:${model}`, cloud: true, paceMs: 7000,
+      id: `gemini:${model}`, cloud: true, paceMs: 7000, scoreWeight: 0.6, jobChars: 6000,
       complete: async (prompt, opts = {}) => {
         const res = await f(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: 'POST', signal: AbortSignal.timeout(60_000),
@@ -62,14 +82,27 @@ export async function getProvider(env: Env = process.env, f: typeof fetch = fetc
   return null;
 }
 
-export function profileBrief(p: CandidateProfile, cloud: boolean): string {
-  const brief = [
+/**
+ * The candidate details a model sees. 'short' suits scoring many jobs. 'full'
+ * adds employers, achievements and projects, which make writing specific.
+ * Contact details and the name are removed before anything goes to a cloud model.
+ */
+export function profileBrief(p: CandidateProfile, cloud: boolean, detail: 'short' | 'full' = 'short'): string {
+  const lines = [
     `Experience: ${p.yearsExperience} years, ${p.experienceLevel}`,
-    `Recent roles: ${p.workHistory.slice(0, 4).map((w) => w.title).join('; ') || 'none listed'}`,
+    detail === 'full'
+      ? `Work history: ${p.workHistory.slice(0, 4).map((w) => [w.title, w.company && `at ${w.company}`, w.period && `(${w.period})`].filter(Boolean).join(' ')).join('; ') || 'none listed'}`
+      : `Recent roles: ${p.workHistory.slice(0, 4).map((w) => w.title).join('; ') || 'none listed'}`,
     `Skills: ${p.skills.slice(0, 30).join(', ')}`,
     `Education: ${p.education.slice(0, 3).join('; ')}`,
     `Qualifications: ${[...p.qualifications, ...p.certifications].slice(0, 8).join('; ') || 'none listed'}`,
-  ].join('\n');
+  ];
+  if (detail === 'full') {
+    if (p.achievements.length) lines.push(`Achievements: ${p.achievements.slice(0, 4).map((a) => truncate(a, 180)).join('; ')}`);
+    if (p.projects.length) lines.push(`Projects: ${p.projects.slice(0, 3).map((a) => truncate(a, 140)).join('; ')}`);
+    if (p.strengths.length) lines.push(`Strengths: ${p.strengths.slice(0, 6).join(', ')}`);
+  }
+  const brief = lines.join('\n');
   return cloud ? redactPii(brief, p.name) : brief;
 }
 
@@ -103,7 +136,7 @@ ${profileBrief(profile, provider.cloud)}
 <job>
 Title: ${job.title}
 Company: ${job.company}
-${truncate(job.description, 1800)}
+${truncate(job.description, provider.jobChars ?? 1800)}
 </job>
 
 Skills already matched: ${base.matchingSkills.slice(0, 10).join(', ') || 'none'}
@@ -111,7 +144,9 @@ Skills not found on the CV: ${base.missingSkills.slice(0, 10).join(', ') || 'non
 
 Reply with JSON only: {"score": 0-100, "explanation": "two plain sentences to the candidate on why this fits and what is missing"}`;
   const out = matchSchema.parse(parseJson(await provider.complete(prompt, { json: true, maxTokens: 220 })));
-  const score = Math.round((out.score + base.score) / 2); // a small model never overrides the evidence alone
+  // A model never overrides the evidence alone: its share is at most 0.6, and 0.5 for small local models.
+  const w = Math.min(0.6, Math.max(0, provider.scoreWeight ?? 0.5));
+  const score = Math.round(out.score * w + base.score * (1 - w));
   return { score, tier: tierFor(score), explanation: out.explanation.trim() };
 }
 

@@ -183,7 +183,7 @@ export function SettingsForm({ s, emailProblem }: { s: any; emailProblem: string
         <TokenField label="Extra search keywords" placeholder="Power BI" value={v.extra_keywords} onChange={(x) => set('extra_keywords', x)} />
         <TokenField label="Industries" placeholder="Banking" value={v.industries} onChange={(x) => set('industries', x)} />
         <TokenField label="Sri Lankan locations" placeholder="Colombo" value={v.preferred_locations} onChange={(x) => set('preferred_locations', x)} />
-        <TokenField label="Preferred countries" hint="Used when global search is on." placeholder="Singapore" value={v.preferred_countries} onChange={(x) => set('preferred_countries', x)} />
+        <TokenField label="Preferred countries" hint="Used when Global job opportunities are on, for searches and LinkedIn links." placeholder="Singapore" value={v.preferred_countries} onChange={(x) => set('preferred_countries', x)} />
         <label className="label">Work arrangement
           <select className="field" value={v.remote_pref} onChange={pick('remote_pref')}>
             <option value="any">Any</option><option value="remote">Remote only</option><option value="hybrid">Hybrid only</option><option value="onsite">On-site only</option>
@@ -256,6 +256,8 @@ export function AddJob() {
   const heading = useId();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState('');
+  const linkedin = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(url.trim());
   return (
     <>
       <button type="button" className="btn btn-quiet" onClick={open}>Add a job you found</button>
@@ -267,14 +269,20 @@ export function AddJob() {
           try {
             const r = await api('/api/jobs', 'POST', Object.fromEntries(new FormData(e.currentTarget)));
             close();
+            setUrl('');
             router.push(`/jobs/${r.id}`);
           } catch (err) { setError(err instanceof Error ? err.message : 'That job could not be added.'); }
           setBusy(false);
         }}>
+          <label className="label sm:col-span-2">Link to the job<input name="url" type="url" required className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.linkedin.com/jobs/view/…" /></label>
+          {linkedin && (
+            <div className="sm:col-span-2">
+              <Notice tone="info">LinkedIn doesn&apos;t let other apps read its pages, so copy these four things from the job: its title, the company, the location and the &ldquo;About the job&rdquo; text. The more of the description you paste, the better the match.</Notice>
+            </div>
+          )}
           <label className="label">Job title<input name="title" required className="field" /></label>
           <label className="label">Company<input name="company" required className="field" /></label>
-          <label className="label">Link to the job<input name="url" type="url" required className="field" /></label>
-          <label className="label">Location<input name="location" defaultValue="Sri Lanka" className="field" /></label>
+          <label className="label sm:col-span-2">Location<input name="location" defaultValue="Sri Lanka" className="field" /></label>
           <label className="label sm:col-span-2">Job description<textarea name="description" rows={6} required minLength={30} className="field" /></label>
           {error && <p role="alert" className="text-sm font-semibold text-stop-strong sm:col-span-2">{error}</p>}
           <div className="flex justify-end gap-2 sm:col-span-2">

@@ -1,6 +1,7 @@
 import { ArrowLeft, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { AiPanel } from '@/components/AiPanel';
+import { hasCoverLetter } from '@/lib/cover-letter';
 import { SaveJob } from '@/components/controls';
 import { Checked, Deadline } from '@/components/JobRow';
 import { Empty, MatchMeter, Notice, Page, Section, SkillList, Tag } from '@/components/ui';
@@ -63,7 +64,7 @@ export default async function JobDetail({ params }: { params: Promise<{ id: stri
             <p className="text-sm text-soft">{j.scored_by === 'rules' ? 'Scored by the built-in engine.' : `Scored with ${j.scored_by.split(':').slice(1).join(':')}.`}</p>
           </Section>
           <Section title="Plain-language summary"><AiPanel kind="job_summary" jobId={j.id} cta="Summarise this job" /></Section>
-          <Section title="Cover letter"><AiPanel kind="cover_letter" jobId={j.id} cta="Write a cover letter" applicationId={j.application_id} /></Section>
+          <Section title="Cover letter"><AiPanel kind="cover_letter" jobId={j.id} cta="Write a cover letter" applicationId={j.application_id} hasLetter={await hasCoverLetter()} /></Section>
           {j.requirements.length > 0 && <Section title="Requirements"><ul className="measure list-disc space-y-1 pl-5">{j.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul></Section>}
           <Section title="Full description"><div className="measure whitespace-pre-line break-words">{j.description}</div></Section>
           {j.company_info && <Section title={`About ${j.company}`}><p className="measure whitespace-pre-line">{j.company_info}</p></Section>}

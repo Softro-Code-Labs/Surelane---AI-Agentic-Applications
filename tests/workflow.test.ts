@@ -280,12 +280,43 @@ describe('sources, duplicates and failures', () => {
     await withCv();
     const g = source('global', [{ title: 'Senior Software Engineer', location: 'Berlin, Germany', country: 'Germany' }], { scope: 'global' });
     await tick(deps([g, source('a', [])]));
-    expect(await one(`SELECT status, error FROM search_run_sources WHERE source='global'`)).toEqual({ status: 'skipped', error: 'Global search is off' });
+    expect(await one(`SELECT status, error FROM search_run_sources WHERE source='global'`)).toEqual({ status: 'skipped', error: 'Global job opportunities are off' });
     expect(await q(`SELECT 1 FROM jobs`)).toHaveLength(0);
     await q(`UPDATE settings SET global_enabled=true`);
     await tick(deps([g, source('a', [])], { now: () => new Date('2026-11-04T07:01:00Z') }));
     expect(await one(`SELECT market FROM jobs`)).toEqual({ market: 'international' });
     expect(await one(`SELECT mode FROM search_runs WHERE slot_key='midday'`)).toEqual({ mode: 'global' });
+  });
+
+  it('with Local off, skips Sri Lankan sources and keeps only global jobs', async () => {
+    await withCv();
+    await q(`UPDATE settings SET local_enabled=false, global_enabled=true`);
+    const lk = source('lk', [{ title: 'Senior Software Engineer' }]);
+    const both = source('both', [{ title: 'Senior Software Engineer', location: 'Colombo' }, { title: 'Senior Software Engineer', location: 'Berlin, Germany', country: 'Germany' }], { scope: 'both' });
+    await tick(deps([lk, both]));
+    expect(await one(`SELECT status, error FROM search_run_sources WHERE source='lk'`)).toEqual({ status: 'skipped', error: 'Local job opportunities are off' });
+    expect(await q(`SELECT market FROM jobs`)).toEqual([{ market: 'international' }]);
+    expect(await one(`SELECT mode FROM search_runs`)).toEqual({ mode: 'global_only' });
+  });
+
+  it('with Local and Global both off, does not search and sends nothing', async () => {
+    await withCv();
+    await q(`UPDATE settings SET local_enabled=false, global_enabled=false`);
+    await tick(deps([source('a', [{ title: 'Senior Software Engineer' }])]));
+    expect(await one(`SELECT status, summary FROM search_runs`)).toMatchObject({ status: 'skipped', summary: expect.stringMatching(/both off/) });
+    expect(await q(`SELECT 1 FROM search_run_sources`)).toHaveLength(0);
+    expect(inbox).toHaveLength(0);
+  });
+
+  it('emails local and global jobs in separate sections when both are on', async () => {
+    await withCv();
+    await q(`UPDATE settings SET global_enabled=true`);
+    await tick(deps([source('both', [{ title: 'Senior Software Engineer', location: 'Colombo' }, { title: 'Senior Software Engineer', location: 'Berlin, Germany', country: 'Germany' }], { scope: 'both' })]));
+    expect(inbox).toHaveLength(1);
+    const body = inbox[0]!.body;
+    expect(body.indexOf('Local Job Opportunities (Sri Lanka)')).toBeGreaterThan(-1);
+    expect(body.indexOf('Colombo')).toBeLessThan(body.indexOf('Global Job Opportunities (International)'));
+    expect(body.indexOf('Global Job Opportunities (International)')).toBeLessThan(body.indexOf('Berlin'));
   });
 
   it('respects a provider daily limit', async () => {

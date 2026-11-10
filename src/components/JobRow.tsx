@@ -23,7 +23,7 @@ export function Deadline({ date }: { date: Date | string }) {
 
 // The title sits under whatever heading the list has, so the level comes from the page.
 export function JobRow({ job, heading: Heading = 'h3' }: { job: Job; heading?: 'h2' | 'h3' }) {
-  const facts = [MARKET_LABEL[job.market], job.work_mode !== 'unknown' ? MODE_LABEL[job.work_mode] : null, job.employment_type, job.salary, job.posted_at ? `Posted ${formatColombo(job.posted_at, 'date')}` : null].filter(Boolean);
+  const facts = [job.category === 'Government' ? 'Government' : null, MARKET_LABEL[job.market], job.work_mode !== 'unknown' ? MODE_LABEL[job.work_mode] : null, job.employment_type, job.salary, job.posted_at ? `Posted ${formatColombo(job.posted_at, 'date')}` : null].filter(Boolean);
   return (
     <article className="job">
       <MatchMeter score={job.score} tier={job.tier} />

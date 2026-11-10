@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS settings (
   slot_midday boolean NOT NULL DEFAULT true,
   slot_evening boolean NOT NULL DEFAULT true,
   schedule_changed_at timestamptz NOT NULL DEFAULT now(),
+  local_enabled boolean NOT NULL DEFAULT true,
   global_enabled boolean NOT NULL DEFAULT false,
   preferred_countries text[] NOT NULL DEFAULT '{}',
   preferred_locations text[] NOT NULL DEFAULT '{}',
@@ -38,6 +39,8 @@ CREATE TABLE IF NOT EXISTS settings (
   email_no_results text NOT NULL DEFAULT 'summary' CHECK (email_no_results IN ('summary','silent')),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- Local (Sri Lanka) and Global (international) are switched separately. Existing installs keep Local on.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS local_enabled boolean NOT NULL DEFAULT true;
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS cv (
@@ -51,6 +54,21 @@ CREATE TABLE IF NOT EXISTS cv (
   profile_engine text NOT NULL DEFAULT 'rules',
   profile_version bigint NOT NULL,
   uploaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Your own cover letter, used as the starting point for tailored letters.
+-- Pasted letters have no file. Kept until you remove it, like your CV.
+CREATE SEQUENCE IF NOT EXISTS cover_letter_version_seq;
+CREATE TABLE IF NOT EXISTS cover_letter (
+  id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  file_name text,
+  mime text,
+  size_bytes integer,
+  file_enc bytea,                                     -- AES-256-GCM, absent for pasted text
+  text_enc bytea NOT NULL,                            -- AES-256-GCM
+  version bigint NOT NULL,
+  uploaded_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS applications (
@@ -241,6 +259,8 @@ CREATE TABLE IF NOT EXISTS ai_tasks (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- For cover letters: 'scratch' (from the CV) or 'reference:<version>' (tailored from your own letter).
+ALTER TABLE ai_tasks ADD COLUMN IF NOT EXISTS basis text;
 CREATE INDEX IF NOT EXISTS ai_tasks_time_idx ON ai_tasks (created_at);
 CREATE INDEX IF NOT EXISTS ai_tasks_queue_idx ON ai_tasks (status, id) WHERE status = 'queued';
 
@@ -282,7 +302,7 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['users','settings','cv','applications','career_pages','jobs','search_runs','search_run_sources',
+  FOREACH t IN ARRAY ARRAY['users','settings','cv','cover_letter','applications','career_pages','jobs','search_runs','search_run_sources',
     'search_requests','search_results','notifications','ai_tasks','cleanup_runs','app_state','sessions','login_attempts']
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);

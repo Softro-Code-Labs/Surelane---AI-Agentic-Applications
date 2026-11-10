@@ -20,6 +20,7 @@ export type RawJob = {
 };
 
 export type SourceSettings = {
+  local_enabled: boolean;
   global_enabled: boolean;
   custom_feeds: string[];
 };
@@ -45,9 +46,9 @@ export type VerifyState = 'active' | 'closed' | 'unknown';
 export type SourceAdapter = {
   id: string;
   label: string;
-  region: 'Sri Lanka' | 'Remote' | 'Company board' | 'Your feed';
-  /** local = usable with Global off; global = only with Global on. */
-  scope: 'local' | 'global';
+  region: 'Sri Lanka' | 'Government' | 'Remote' | 'Company board' | 'Your feed';
+  /** local = only Sri Lankan jobs, searched with Local on; global = only international jobs, searched with Global on; both = filtered by whichever is on. */
+  scope: 'local' | 'global' | 'both';
   /** Most requests a day the provider asks for, if it sets a limit. */
   maxPerDay?: number;
   /** True when a response lists every open job, so absence means closed. */

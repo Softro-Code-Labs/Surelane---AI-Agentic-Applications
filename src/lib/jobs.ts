@@ -11,15 +11,17 @@ export type JobRow = {
   status: string; status_reason: string | null; verified_at: Date | null; verify_method: string | null; application_id?: string | null;
 };
 
-export type JobFilters = { tier?: string; market?: string; mode?: string; type?: string; recent?: string };
+export type JobFilters = { tier?: string; market?: string; sector?: string; mode?: string; type?: string; recent?: string };
 
 export async function recommended(s: Settings, f: JobFilters = {}, limit = 60): Promise<JobRow[]> {
   const where = [RECOMMENDABLE, 'j.score >= $1'];
   const params: unknown[] = [s.min_score];
   const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replace('?', `$${params.length}`)); };
   if (['Strong', 'Good', 'Potential'].includes(f.tier ?? '')) add('j.tier = ?', f.tier);
-  if (f.market === 'sri_lanka') where.push(`j.market <> 'international'`);
-  if (f.market === 'international') where.push(`j.market = 'international'`);
+  if (f.market === 'local') where.push(`j.market = 'sri_lanka'`);
+  if (f.market === 'global') where.push(`j.market <> 'sri_lanka'`);
+  if (f.sector === 'government') where.push(`j.category = 'Government'`);
+  if (f.sector === 'private') where.push(`j.category IS DISTINCT FROM 'Government'`);
   if (f.mode === 'remote') where.push(`j.work_mode = 'remote'`);
   if (f.type === 'full') where.push(`j.employment_type ILIKE 'full%'`);
   if (f.type === 'part') where.push(`j.employment_type ILIKE 'part%'`);

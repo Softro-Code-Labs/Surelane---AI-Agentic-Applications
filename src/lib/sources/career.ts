@@ -306,7 +306,7 @@ export async function inspectCareerPage(page: CareerPage, ctx: SourceContext, de
 
 export function careerPageSource(page: CareerPage): SourceAdapter {
   const adapter: SourceAdapter = {
-    id: `page:${page.id}`, label: `${page.company} careers`, region: 'Company board', scope: 'local', completeListing: true, careerPageId: page.id,
+    id: `page:${page.id}`, label: `${page.company} careers`, region: 'Company board', scope: 'both', completeListing: true, careerPageId: page.id,
     note: 'A company career page on your list.',
     search: async (ctx) => {
       const outcome = await inspectCareerPage(page, ctx);

@@ -30,6 +30,45 @@ export function coverLetterDraft(p: CandidateProfile, j: DraftJob): string {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/** Fills the blanks that cover letter templates leave, such as [Company Name] or [Position]. */
+export function fillPlaceholders(letter: string, j: Pick<DraftJob, 'title' | 'company'>): string {
+  return letter
+    .replace(/[[{<]\s*(?:company(?:'s)?(?:\s+name)?|organi[sz]ation(?:\s+name)?|employer(?:\s+name)?|hiring company)\s*[\]}>]/gi, j.company)
+    .replace(/[[{<]\s*(?:position|role|job(?:\s+title)?|position title|vacancy)(?:\s+name)?\s*[\]}>]/gi, j.title);
+}
+
+const GREETING = /^(dear|hello|hi|to whom it may concern|good (morning|afternoon))\b/i;
+const SIGN_OFF = /^(yours (sincerely|faithfully|truly)|kind regards|best regards|warm regards|regards|sincerely|best wishes|with thanks|thank you,?$|respectfully)/i;
+const OPENER = /\b(apply|applying|application|interest(ed)? in|express)\b[^.]*\b(position|role|vacancy|post|opportunity|opening)\b/i;
+
+/**
+ * Your own letter, tailored to one job without an AI model. Your words stay:
+ * template blanks are filled, the opening line names this job, and one
+ * sentence links what the job asks for to the skills you share. Your greeting,
+ * body and sign-off are kept as you wrote them.
+ */
+export function tailoredLetterDraft(letter: string, j: DraftJob): string {
+  const paras = fillPlaceholders(letter, j).split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  const greeting = paras[0] && GREETING.test(paras[0]) && paras[0].length < 90 ? paras.shift()! : 'Dear Hiring Manager,';
+  const signAt = paras.findIndex((x, i) => i > 0 && SIGN_OFF.test(x) && x.length < 160);
+  const closing = signAt >= 0 ? paras.splice(signAt) : [];
+  const body = paras;
+
+  // Your old opening named another role, so its first sentence makes way for this one. The rest of it stays.
+  let rest = '';
+  if (body[0] && OPENER.test(body[0].split(/(?<=[.!?])\s+/)[0] ?? '')) {
+    rest = body.shift()!.split(/(?<=[.!?])\s+/).slice(1).join(' ');
+  }
+  const opening = `I am writing to apply for the ${j.title} position at ${j.company}.${rest ? ` ${rest}` : ''}`;
+  const shared = j.matching_skills.slice(0, 4);
+  const fit = shared.length
+    ? `Your listing asks for ${list(shared)}, and ${shared.length === 1 ? 'this is' : 'these are'} central to the experience I describe below.`
+    : '';
+  return [greeting, fit ? `${opening} ${fit}` : opening, ...body, ...closing].join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function jobSummaryDraft(j: DraftJob): string {
   // The opening describes the role. Requirements are listed separately below.
   const lines = j.description.split('\n');

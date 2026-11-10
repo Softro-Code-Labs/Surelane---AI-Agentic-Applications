@@ -2,7 +2,20 @@ import { XMLParser } from 'fast-xml-parser';
 import { htmlToText, parseDate, parseDeadline, safeUrl } from '../text';
 import { GLOBAL_SITES, GOVERNMENT_SITES, SRI_LANKA_SITES, siteSearchUrl } from '../sites';
 import { getJson, httpGet, robotsAllow } from './http';
-import { SourceError, type RawJob, type SourceAdapter, type SourceContext, type VerifyState } from './types';
+import { SourceError, SourceSkip, type RawJob, type SourceAdapter, type SourceContext, type VerifyState } from './types';
+
+/**
+ * A feed that answers 401 or 403 has refused this server. Some sites block cloud
+ * servers such as GitHub's while allowing home connections. That is respected:
+ * the source is skipped with the reason, never retried another way, and not
+ * counted as a failed search.
+ */
+export function feedError(label: string, status: number): SourceError {
+  if (status === 401 || status === 403) {
+    return new SourceSkip(`${label}: the site refused access from this server (HTTP ${status}), so it was not read. Some sites block cloud servers such as GitHub's but allow home connections.`);
+  }
+  return new SourceError(`${label}: HTTP ${status}`);
+}
 
 function withUrl(job: Omit<RawJob, 'url'> & { url: string | null | undefined }): RawJob[] {
   const url = safeUrl(job.url);
@@ -46,7 +59,7 @@ export function parseRss(body: string, source: string, label: string): RawJob[] 
 async function fetchFeed(ctx: SourceContext, url: string, id: string, label: string): Promise<RawJob[]> {
   if (!(await robotsAllow(ctx, url))) throw new SourceError(`${label}: robots.txt does not allow this feed`);
   const res = await httpGet(ctx, url);
-  if (!res.ok) throw new SourceError(`${label}: HTTP ${res.status}`);
+  if (!res.ok) throw feedError(label, res.status);
   return parseRss(await res.text(), id, label);
 }
 
@@ -86,7 +99,7 @@ const jobpal: SourceAdapter = {
     const seen = new Map<string, RawJob>();
     for (const term of ['', ...ctx.keywords.slice(0, 3)]) {
       const res = await httpGet(ctx, term ? `${base}&search_keywords=${encodeURIComponent(term)}` : base);
-      if (!res.ok) throw new SourceError(`Jobpal.lk: HTTP ${res.status}`);
+      if (!res.ok) throw feedError('Jobpal.lk', res.status);
       for (const job of parseJobpal(await res.text())) seen.set(job.url, job);
       await ctx.sleep(1000);
     }
@@ -143,7 +156,7 @@ function governmentFeed(id: string, label: string, url: string, parse: (body: st
     search: async (ctx) => {
       if (!(await robotsAllow(ctx, url))) throw new SourceError(`${label}: robots.txt does not allow its feed`);
       const res = await httpGet(ctx, url);
-      if (!res.ok) throw new SourceError(`${label}: HTTP ${res.status}`);
+      if (!res.ok) throw feedError(label, res.status);
       return parse(await res.text());
     },
   };

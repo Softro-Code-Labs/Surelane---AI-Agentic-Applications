@@ -40,16 +40,19 @@ export function CoverLetterAdd() {
     <div className="space-y-6">
       <div>
         <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}
-          className={`flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed px-5 py-10 text-center transition-colors ${over ? 'border-primary bg-info-soft' : 'border-edge bg-surface hover:bg-sunken'}`}>
-          {busy ? <LoaderCircle size={30} className="animate-spin text-road" aria-hidden="true" /> : <FileUp size={30} className="text-road" aria-hidden="true" />}
-          <span className="mt-3 text-lg font-bold">{busy ? 'Reading your cover letter' : 'Upload your cover letter'}</span>
-          <span className="mt-1 text-soft">Choose a PDF, DOCX or text file, or drop it here.</span>
+          className={`flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${over ? 'border-primary bg-info-soft' : 'border-line bg-surface hover:border-primary/50 hover:bg-sunken/60'}`}>
+          <span className="brand-gradient flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-[0_10px_24px_-10px_var(--brand-glow)]">{busy ? <LoaderCircle size={26} className="animate-spin" aria-hidden="true" /> : <FileUp size={26} aria-hidden="true" />}</span>
+          <span className="mt-4 font-display text-lg font-semibold">{busy ? 'Reading your cover letter' : 'Upload your cover letter'}</span>
+          <span className="mt-1 text-sm text-soft">Choose a PDF, DOCX or text file, or drop it here.</span>
+          <span className="btn btn-primary btn-sm mt-5" aria-hidden="true">Choose file</span>
           <input ref={input} type="file" accept={ACCEPT} className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         </label>
         {error && <p role="alert" className="mt-2 font-semibold text-stop-strong">{error}</p>}
       </div>
 
-      <form onSubmit={async (e) => {
+      <div className="flex items-center gap-3 text-[12px] font-semibold uppercase tracking-wider text-soft" aria-hidden="true"><span className="divider flex-1" />or<span className="divider flex-1" /></div>
+
+      <form className="card card-pad" onSubmit={async (e) => {
         e.preventDefault(); setSaving(true); setPasteError('');
         try { await api('/api/cover-letter', 'POST', { text }); router.refresh(); }
         catch (err) { setPasteError(err instanceof Error ? err.message : 'That did not save.'); }
@@ -65,7 +68,7 @@ export function CoverLetterAdd() {
         {pasteError && <p role="alert" className="mt-2 font-semibold text-stop-strong">{pasteError}</p>}
       </form>
 
-      <p className="flex items-start gap-2 text-[15px] text-soft"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-safe-strong" aria-hidden="true" />Your cover letter is encrypted in your own database, like your CV. Template blanks such as [Company Name] are fine: Surelane fills them in for each job.</p>
+      <p className="flex items-start gap-2 text-sm text-soft"><ShieldCheck size={18} className="mt-px shrink-0 text-safe-strong" aria-hidden="true" />Your cover letter is encrypted in your own database, like your CV. Template blanks such as [Company Name] are fine: Surelane fills them in for each job.</p>
     </div>
   );
 }

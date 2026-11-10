@@ -22,7 +22,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toasts" role="status" aria-live="polite">
         {items.map((t) => {
           const Icon = t.tone === 'ok' ? Check : t.tone === 'bad' ? X : Info;
-          return <div key={t.id} className="toast"><Icon size={18} aria-hidden="true" /><span>{t.text}</span></div>;
+          return <div key={t.id} className={`toast toast-${t.tone}`}><Icon size={18} aria-hidden="true" /><span>{t.text}</span></div>;
         })}
       </div>
     </Ctx.Provider>
@@ -47,10 +47,10 @@ export function ConfirmButton({ className, label, children, title, body, confirm
     <>
       <button type="button" className={className} aria-label={label} title={label} onClick={() => { setError(''); open(); }}>{children}</button>
       <dialog ref={ref} className="sheet" aria-labelledby={heading}>
-        <h2 id={heading} className="text-[1.25rem]">{title}</h2>
-        <div className="mt-2 text-soft">{body}</div>
+        <h2 id={heading} className="text-[1.2rem]">{title}</h2>
+        <div className="mt-2 text-sm leading-relaxed text-soft">{body}</div>
         {error && <p role="alert" className="mt-3 text-sm font-semibold text-stop-strong">{error}</p>}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2">
           <button type="button" className="btn btn-quiet" onClick={close}>Cancel</button>
           <button type="button" className="btn btn-danger" disabled={busy} onClick={async () => {
             setBusy(true); setError('');

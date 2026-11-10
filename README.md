@@ -289,15 +289,17 @@ npm run typecheck
 
 ### Design system
 
-Every color, in light and dark, comes from the tokens in `src/app/globals.css`, and each text and background pair was measured for contrast. Use the tokens rather than new colors.
+Every colour, in light and dark, comes from the tokens in `src/app/globals.css`. Text and background pairs meet WCAG AA contrast, and form-control borders meet 3:1. Use the tokens rather than new colours.
 
-- **Color has one job each.** Blue is structure, green is safe, amber means look at this, and red means stop. A color never works alone: each state also has a word or an icon.
-- **One typeface.** Overpass, the highway-sign lettering behind the logo.
-- **The road is the signature.** The three stops on Today, the match meter (three chevrons for Strong, two for Good, one for Potential) and the stages in Applications all come from the logo's chevrons. Keep it to those places, so it stays special.
-- **Flat and calm.** Rows with hairlines, 6px corners, no shadows.
+- **Brand.** The mark is a check that carries on into a forward arrow ("sure" plus "lane"), on an indigo-to-violet tile. It lives in `src/components/brand.tsx`. The favicon (`src/app/icon.svg`) and app icons (`public/*.png`, `src/app/apple-icon.png`) use the same geometry.
+- **Colour has one job each.** Indigo is the brand and the main actions. Emerald means safe (on, searched, still open), amber means look at this, and rose means stop. Colour never works alone: each state also has a word or an icon.
+- **Type.** Plus Jakarta Sans for headings and Inter for everything else. Both are self-hosted through Fontsource, under the free SIL Open Font License.
+- **Depth.** Content sits on cards (`.card`): 16px corners, a hairline border and a soft shadow. Dialogs and toasts float higher. The deep-navy hero (`.band`) is kept for the Today header, the profile banner and the sign-in screen.
+- **Signature elements.** The match ring (score plus tier), the day timeline on Today, and the stage cards in Applications.
+- **Layout.** A sidebar on desktop puts every page one click away. Phones get a frosted top bar, a five-tab bottom bar, and pill tabs inside "You" and "Setup". Pages are built from `Page`, `PageHead`, `Section` (a card), `Stat` and `Empty`.
 - **Plain words.** Sentence case, no jargon, and no promise the app can't keep. Surelane checks that a listing is live, not that an employer is honest, and it says so.
 
-Shared parts live in `src/components`: `ui.tsx` for layout and labels, `controls.tsx` for switches and buttons, `feedback.tsx` for messages and confirmations, and `brand.tsx` for the logo.
+Shared parts live in `src/components`: `ui.tsx` for layout, cards and labels, `controls.tsx` for switches and buttons, `feedback.tsx` for messages and confirmations, `Shell.tsx` for navigation, and `brand.tsx` for the logo.
 
 ## If something goes wrong
 

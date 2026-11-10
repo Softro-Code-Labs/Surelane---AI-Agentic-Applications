@@ -1,5 +1,5 @@
 'use client';
-import { Eye, EyeOff, FileUp, LoaderCircle, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Eye, EyeOff, FileUp, LoaderCircle, Monitor, Moon, Plus, ShieldCheck, Sun, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { api } from './controls';
@@ -48,14 +48,15 @@ export function CvDrop() {
   return (
     <div>
       <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={drop}
-        className={`flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed px-5 py-12 text-center transition-colors ${over ? 'border-primary bg-info-soft' : 'border-edge bg-surface hover:bg-sunken'}`}>
-        {busy ? <LoaderCircle size={30} className="animate-spin text-road" aria-hidden="true" /> : <FileUp size={30} className="text-road" aria-hidden="true" />}
-        <span className="mt-3 text-lg font-bold">{busy ? 'Reading your CV' : 'Upload your CV'}</span>
-        <span className="mt-1 text-soft">Choose a PDF or DOCX file, or drop it here.</span>
+        className={`flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-colors ${over ? 'border-primary bg-info-soft' : 'border-line bg-surface hover:border-primary/50 hover:bg-sunken/60'}`}>
+        <span className="brand-gradient flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-[0_10px_24px_-10px_var(--brand-glow)]">{busy ? <LoaderCircle size={26} className="animate-spin" aria-hidden="true" /> : <FileUp size={26} aria-hidden="true" />}</span>
+        <span className="mt-4 font-display text-lg font-semibold">{busy ? 'Reading your CV' : 'Upload your CV'}</span>
+        <span className="mt-1 text-sm text-soft">Choose a PDF or DOCX file, or drop it here. Up to 4 MB.</span>
+        <span className="btn btn-primary btn-sm mt-5" aria-hidden="true">Choose file</span>
         <input ref={input} type="file" accept={ACCEPT} className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
       </label>
       {error && <p role="alert" className="mt-2 font-semibold text-stop-strong">{error}</p>}
-      <p className="mt-3 flex items-start gap-2 text-[15px] text-soft"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-safe-strong" aria-hidden="true" />Your CV is encrypted in your own database. Surelane uses it only to match jobs for you.</p>
+      <p className="mt-4 flex items-start gap-2 text-sm text-soft"><ShieldCheck size={18} className="mt-px shrink-0 text-safe-strong" aria-hidden="true" />Your CV is encrypted in your own database. Surelane uses it only to match jobs for you.</p>
     </div>
   );
 }
@@ -218,7 +219,7 @@ export function SettingsForm({ s, emailProblem }: { s: any; emailProblem: string
       </Group>
 
       {(dirty || error) && (
-        <div className="savebar -mx-4 border-t border-line bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
+        <div className="savebar card glass px-4 py-3 shadow-[var(--shadow-lg)]">
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>{busy && <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />}Save changes</button>
             <button type="button" className="btn btn-quiet" onClick={() => { setV(saved); setError(''); }}>Discard</button>
@@ -241,9 +242,12 @@ export function ThemeControl({ initial }: { initial?: string }) {
   return (
     <fieldset>
       <legend className="sr-only">Appearance</legend>
-      <div className="flex flex-wrap gap-5">
-        {[['system', 'Match this device'], ['light', 'Light'], ['dark', 'Dark']].map(([key, label]) => (
-          <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2"><input type="radio" name="theme" className="h-4 w-4 accent-[var(--primary)]" checked={theme === key} onChange={() => choose(key!)} />{label}</label>
+      <div className="seg flex-wrap">
+        {([['system', 'Match this device', Monitor], ['light', 'Light', Sun], ['dark', 'Dark', Moon]] as const).map(([key, label, Icon]) => (
+          <label key={key} className="has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus)]">
+            <input type="radio" name="theme" className="sr-only" checked={theme === key} onChange={() => choose(key)} />
+            <Icon size={15} aria-hidden="true" />{label}
+          </label>
         ))}
       </div>
     </fieldset>
@@ -260,10 +264,10 @@ export function AddJob() {
   const linkedin = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(url.trim());
   return (
     <>
-      <button type="button" className="btn btn-quiet" onClick={open}>Add a job you found</button>
+      <button type="button" className="btn btn-quiet" onClick={open}><Plus size={16} aria-hidden="true" />Add a job you found</button>
       <dialog ref={ref} className="sheet sheet-wide" aria-labelledby={heading}>
         <h2 id={heading} className="text-[1.25rem]">Add a job you found</h2>
-        <p className="mt-1 text-soft">Found a vacancy on LinkedIn, TopJobs or another site? Paste it here to score it against your CV and track it.</p>
+        <p className="mt-1 text-sm text-soft">Found a vacancy on LinkedIn, TopJobs or another site? Paste it here to score it against your CV and track it.</p>
         <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={async (e) => {
           e.preventDefault(); setError(''); setBusy(true);
           try {

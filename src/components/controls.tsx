@@ -34,12 +34,14 @@ export function useSetting(initial: boolean, field: string) {
   return { value, set };
 }
 
-export function AgentSwitch({ enabled }: { enabled: boolean }) {
+export function AgentSwitch({ enabled, compact = false }: { enabled: boolean; compact?: boolean }) {
   const { value, set } = useSetting(enabled, 'agent_enabled');
+  if (compact) return <Switch checked={value} onChange={set} label="Surelane agent" />;
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-2.5 pr-1.5 shadow-[var(--shadow-xs)] sm:pl-3">
+      <span className={`inline-block h-2 w-2 rounded-full ${value ? 'bg-safe' : 'bg-warn'}`} aria-hidden="true" />
+      <span className="text-[13px] font-semibold max-sm:sr-only">{value ? 'Agent on' : 'Agent off'}</span>
       <Switch checked={value} onChange={set} label="Surelane agent" />
-      <span className="text-sm font-semibold max-[359px]:sr-only">{value ? 'Agent on' : 'Agent off'}</span>
     </div>
   );
 }
@@ -93,7 +95,7 @@ export function SearchNow({ blockedBecause }: { blockedBecause?: string }) {
   const busy = state !== 'idle';
   // aria-disabled, not disabled: the button stays reachable and explains why it can't run.
   return (
-    <button type="button" className="btn btn-band" aria-disabled={Boolean(blockedBecause) || busy} onClick={() => {
+    <button type="button" className="btn btn-primary" aria-disabled={Boolean(blockedBecause) || busy} onClick={() => {
       if (blockedBecause) toast('info', blockedBecause);
       else if (!busy) run();
     }}>
@@ -128,7 +130,7 @@ export function SaveJob({ jobId, saved, className = '' }: { jobId: string; saved
 export function SignOut({ className = '' }: { className?: string }) {
   return (
     <button type="button" className={className} onClick={async () => { await api('/api/auth/logout'); location.href = '/login'; }}>
-      <LogOut size={16} aria-hidden="true" />Sign out
+      <LogOut size={18} strokeWidth={1.8} aria-hidden="true" />Sign out
     </button>
   );
 }

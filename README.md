@@ -194,21 +194,46 @@ If a page doesn't state a location, jobs are marked with the location you chose,
 
 Your list is kept until you delete it, and isn't part of the 30-day cleanup.
 
-## Local AI
+## Local AI (free and open source)
 
-Set `AI_PROVIDER=ollama` as a GitHub variable and in Vercel. Each search then installs Ollama on the runner, restores the `gemma3:1b` model (about 815 MB) from cache, and uses it to refine the top matches and write better cover letters and summaries.
+Set `AI_PROVIDER=ollama` as a GitHub variable and in Vercel. Each search then starts [Ollama](https://ollama.com) (MIT licence) on GitHub's runner, restores the model from cache, and uses it to:
 
-- **No hardware needed from you:** it runs on GitHub's 2-core, 8 GB runner, so your CV stays on your own infrastructure.
-- **Speed:** expect roughly 20 to 40 seconds a job. This is an estimate, not a measurement. The run stops refining after `AI_TIME_BUDGET_SECONDS` (default 420), and remaining jobs keep their built-in score.
-- **Quality:** a 1 GB model is modest. It can reword and sense-check, but it isn't equal to a large cloud model. Its score is averaged with the built-in score rather than replacing it.
-- **Minutes:** with AI, plan on about 1,150 of your 2,000 monthly minutes. Without it, about 500. Heavy use of Search now adds to this.
-- **On your own computer:** a better machine can run a larger model, such as Phi-4 Mini, but the computer must be on at search time.
+- add a headline, summary and suggested job titles to your CV profile (facts always come from your CV itself)
+- give a second opinion on your top matches, with a plain explanation
+- write cover letters, tailor your own letter, summarise jobs, and suggest CV improvements and career paths.
 
-If the model cannot start, the search still runs on the built-in engine, and every result shows which engine scored it.
+The default model is **Qwen 3 1.7B** (`qwen3:1.7b`, about 1.4 GB). It is under the Apache 2.0 open-source licence, which allows any use, including commercial. It's clearly more capable than the earlier default (Gemma 3 1B), and still small enough for GitHub's free runner. Its thinking mode is switched off, because it is slow on 2 CPU cores and breaks the JSON the app expects.
+
+**What it costs: nothing.** Every part is free:
+
+| Part | Cost | Why there's no surprise bill |
+|---|---|---|
+| Ollama | Free (MIT licence) | Installed fresh on each run |
+| Qwen 3 1.7B | Free (Apache 2.0) | Downloaded once from Ollama's free registry, then cached |
+| Model cache | Free | It uses about 1.4 GB of GitHub's free 10 GB cache per repository |
+| GitHub Actions minutes | Free within 2,000 a month | Plan on about 1,150 a month with AI, or about 500 without. With no card on GitHub, going over stops the runs instead of charging. |
+| API keys | None needed | Nothing is sent outside your own GitHub runner and database |
+
+**Speed and limits.** The runner has 2 CPU cores, so expect very roughly 20 to 60 seconds a job; this is an estimate, not a measurement. Each search reviews up to 12 top matches (`AI_MAX_JOBS_PER_RUN`) for at most 7 minutes (`AI_TIME_BUDGET_SECONDS`, default 420), then spends up to 4 minutes on queued cover letters and summaries. These caps keep minutes flat whichever model you use. A bigger model doesn't cost more; it just finishes fewer jobs within the same time.
+
+**Quality.** A small model is a helpful second opinion, not an expert. Its score counts for half of a job's score, and the built-in score is the other half. Cover letters and summaries are clearly better than the built-in versions, but read them before sending.
+
+**Other free, open-source models.** Set the `OLLAMA_MODEL` variable in GitHub to try one:
+
+| Model | Licence | Size | Trade-off |
+|---|---|---|---|
+| `qwen3:1.7b` (default) | Apache 2.0 | 1.4 GB | Best balance on the free runner |
+| `granite4:3b` | Apache 2.0 | 2.1 GB | Better writing, about twice as slow, so fewer jobs per search. A long cover letter may hit the 3-minute limit per request and fall back to the built-in version. |
+| `phi4-mini` | MIT | 2.5 GB | Similar trade-off to Granite 4 3B |
+| `gemma3:1b` (earlier default) | Gemma Terms (free, not open source) | 0.8 GB | Fastest, weakest |
+
+**On your own computer.** If you run the worker yourself (see Running it yourself) on a machine with more memory or a graphics card, a larger open model such as `qwen3:8b` gives much better results. The computer must be on at search time.
+
+If Ollama or the model can't start, the search still runs on the built-in engine, and every result shows which engine scored it.
 
 **Built-in engine (no AI model):** the app works fully with `AI_PROVIDER` unset. Scoring, explanations, cover letters and summaries all come from rules, so they are plainer but free, instant and private.
 
-**Gemini (optional, cloud):** its free tier currently allows about 500 requests a day on `gemini-3.5-flash-lite`. Google's own pricing page says free-tier content is **used to improve its products**. The app removes your name, email and phone first, but your experience and skills are still sent. Leave it off if that concerns you.
+**Gemini (optional, cloud, not open source):** off unless you set `AI_PROVIDER=gemini` and a `GEMINI_API_KEY`. Its free tier needs no card, and requests over the limit are refused, not charged. But it isn't open source, and Google's pricing page says free-tier content is **used to improve its products**. The app removes your name, email, phone and links first, but your experience and skills are still sent. The local model above is the recommended choice.
 
 ## How your rules work
 

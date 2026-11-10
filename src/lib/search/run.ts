@@ -129,7 +129,8 @@ async function verifyStored(sources: SourceAdapter[], ctx: SourceContext, min: n
 }
 
 async function refineTop(provider: Provider, profile: CandidateProfile, version: string, s: Settings, env: Record<string, string | undefined>, sleep: Deps['sleep'], log: (m: string) => void) {
-  const maxJobs = Number(env.AI_MAX_JOBS_PER_RUN || 12);
+  // A local model is limited by the time budget below; a cloud model by its daily free allowance.
+  const maxJobs = Number(env.AI_MAX_JOBS_PER_RUN || (provider.cloud ? 20 : 12));
   const deadline = Date.now() + Number(env.AI_TIME_BUDGET_SECONDS || 420) * 1000;
   const rows = await q<{ id: string; title: string; company: string; description: string; score: number; matching_skills: string[]; missing_skills: string[] }>(
     `SELECT id, title, company, description, score, matching_skills, missing_skills FROM jobs j

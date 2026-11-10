@@ -22,7 +22,7 @@ export default async function History() {
             return (
               <li key={r.id} className="border-t border-line py-4 first:border-t-0 first:pt-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div><span className="font-bold">{formatColombo(r.started_at)}</span><span className="ml-2 text-soft">{r.trigger === 'manual' ? 'Manual search' : `${SLOTS.find((s) => s.key === r.slot_key)?.label} scheduled search`}, {r.mode === 'global' ? 'Sri Lanka and international' : 'Sri Lanka'}</span></div>
+                  <div><span className="font-bold">{formatColombo(r.started_at)}</span><span className="ml-2 text-soft">{r.trigger === 'manual' ? 'Manual search' : `${SLOTS.find((s) => s.key === r.slot_key)?.label} scheduled search`}, {r.mode === 'global' ? 'Sri Lanka and global' : r.mode === 'global_only' ? 'Global only' : 'Sri Lanka only'}</span></div>
                   <StatusText status={r.status} />
                 </div>
                 {r.summary && <p className="measure mt-1">{r.summary}</p>}

@@ -21,7 +21,7 @@ function ctx(routes: Record<string, Route>, over: Partial<SourceContext> = {}): 
       const key = Object.keys(routes).filter((k) => String(url).startsWith(k)).sort((a, b) => b.length - a.length)[0];
       return key ? routes[key]!(init) : new Response('', { status: 404 });
     }) as typeof fetch,
-    sleep: async () => {}, now: new Date('2026-11-05T00:00:00Z'), keywords: [], settings: { global_enabled: false, custom_feeds: [] }, env: {},
+    sleep: async () => {}, now: new Date('2026-11-05T00:00:00Z'), keywords: [], settings: { local_enabled: true, global_enabled: false, custom_feeds: [] }, env: {},
     robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'], ...over,
   };
 }

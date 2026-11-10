@@ -6,7 +6,7 @@ import { ToastProvider } from '@/components/feedback';
 import { Shell } from '@/components/Shell';
 import { isSignedIn, ownerExists } from '@/lib/auth';
 import { one } from '@/lib/db';
-import { RECOMMENDABLE, getCv, getSettings, scopeSql } from '@/lib/settings';
+import { RECOMMENDABLE, SCOPE_OFF, getCv, getSettings, scopeSql, searchesOff } from '@/lib/settings';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!(await ownerExists())) redirect('/setup');
@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const [s, cv] = await Promise.all([getSettings(), getCv()]);
   const counts = (await one<{ jobs: string; apps: string }>(
     `SELECT (SELECT count(*) FROM jobs j WHERE ${RECOMMENDABLE} ${scopeSql(s)} AND j.score >= $1) jobs, (SELECT count(*) FROM applications) apps`, [s.min_score]))!;
-  const blocked = !s.agent_enabled ? 'Turn the agent on first, then you can search.' : !cv ? 'Upload your CV first, so Surelane knows what to look for.' : undefined;
+  const blocked = !s.agent_enabled ? 'Turn the agent on first, then you can search.' : !cv ? 'Upload your CV first, so Surelane knows what to look for.' : searchesOff(s) ? SCOPE_OFF : undefined;
   return (
     <ToastProvider>
       <a href="#main" className="skip">Skip to main content</a>

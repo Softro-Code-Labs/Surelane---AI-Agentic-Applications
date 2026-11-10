@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { htmlToText, parseDate, parseDeadline, safeUrl } from '../text';
+import { GLOBAL_SITES, GOVERNMENT_SITES, SRI_LANKA_SITES, siteSearchUrl } from '../sites';
 import { getJson, httpGet, robotsAllow } from './http';
 import { SourceError, type RawJob, type SourceAdapter, type SourceContext, type VerifyState } from './types';
 
@@ -55,6 +56,104 @@ const itpro: SourceAdapter = {
   search: async (ctx) => (await fetchFeed(ctx, 'https://itpro.lk/rss/all/', 'itpro', 'ITPro.lk')).map((j) => ({ ...j, country: 'Sri Lanka' })),
 };
 
+// ── Jobpal.lk (WP Job Manager job feed) ─────────────────────────────────────
+/** Jobpal's feed carries the company and job type in its own fields. Its location field is broken (it reads "Array"), so it is ignored. */
+export function parseJobpal(body: string): RawJob[] {
+  const doc = xml.parse(body);
+  const channel = doc?.rss?.channel;
+  if (!channel) throw new SourceError('Jobpal.lk: the response was not an RSS feed');
+  const items = channel.item ? (Array.isArray(channel.item) ? channel.item : [channel.item]) : [];
+  return items.flatMap((it: any) => {
+    const title = htmlToText(String(it.title ?? ''));
+    const place = htmlToText(String(it['job_listing:location'] ?? '')).replace(/^Array\b|[—–-]\s*$/g, '').trim();
+    const location = place || 'Sri Lanka';
+    return withUrl({
+      source: 'jobpal', sourceLabel: 'Jobpal.lk', sourceJobId: String(it.guid ?? it.link ?? ''), url: String(it.link ?? ''),
+      title, company: htmlToText(String(it['job_listing:company'] ?? '')) || 'Not stated',
+      location, country: 'Sri Lanka', workMode: modeFrom(`${title} ${place}`),
+      employmentType: htmlToText(String(it['job_listing:job_type'] ?? '')).replace(/-/g, ' ') || null,
+      postedAt: parseDate(it.pubDate), description: htmlToText(String(it['content:encoded'] ?? it.description ?? '')),
+    });
+  });
+}
+
+const jobpal: SourceAdapter = {
+  id: 'jobpal', label: 'Jobpal.lk', region: 'Sri Lanka', scope: 'local',
+  note: 'Sri Lankan jobs in every field, read from the job feed Jobpal.lk publishes: the newest jobs, plus a search for each of your top keywords.',
+  search: async (ctx) => {
+    const base = 'https://jobpal.lk/?feed=job_feed';
+    if (!(await robotsAllow(ctx, base))) throw new SourceError('Jobpal.lk: robots.txt does not allow its job feed');
+    const seen = new Map<string, RawJob>();
+    for (const term of ['', ...ctx.keywords.slice(0, 3)]) {
+      const res = await httpGet(ctx, term ? `${base}&search_keywords=${encodeURIComponent(term)}` : base);
+      if (!res.ok) throw new SourceError(`Jobpal.lk: HTTP ${res.status}`);
+      for (const job of parseJobpal(await res.text())) seen.set(job.url, job);
+      await ctx.sleep(1000);
+    }
+    return [...seen.values()];
+  },
+};
+
+// ── Government vacancies: Govjobs.lk and Govdoc Jobs (RSS) ───────────────────
+function feedItems(body: string, label: string): any[] {
+  const channel = xml.parse(body)?.rss?.channel;
+  if (!channel) throw new SourceError(`${label}: the response was not an RSS feed`);
+  return channel.item ? (Array.isArray(channel.item) ? channel.item : [channel.item]) : [];
+}
+
+/** "Pharmacist – State Pharmaceuticals Corporation of Sri Lanka Job Vacancies 2026", with "Employer … Job Title … Closing Date 2026 – 11 – 21" in the text. */
+export function parseGovjobs(body: string): RawJob[] {
+  return feedItems(body, 'Govjobs.lk').flatMap((it: any) => {
+    // The feed also carries exam calendars and news, which are not vacancies.
+    if (![it.category].flat().some((c) => /vacanc/i.test(String(c ?? '')))) return [];
+    const heading = htmlToText(String(it.title ?? '')).replace(/\s*[-–(]?\s*(?:job\s+)?vacancies(?:\s+\d{4})?\)?\s*$/i, '').replace(/\s+\d{4}$/, '').trim();
+    const text = htmlToText(String(it['content:encoded'] || it.description || '')).replace(/^Read more please go to this link:.*$/m, '').trim();
+    const flat = text.replace(/\s+/g, ' ');
+    const employer = flat.match(/\bEmployer\s+(.+?)\s+Job Title\b/i)?.[1]?.trim();
+    const role = flat.match(/\bJob Title\s+(.+?)\s+(?:Exam Date|Closing Date|Sinhala|English|Tamil)\b/i)?.[1]?.trim();
+    const close = flat.match(/\bClosing Date\s*(\d{4})\s*[-–—/.]\s*(\d{1,2})\s*[-–—/.]\s*(\d{1,2})/i);
+    const [left, ...right] = heading.split(/\s+[–-]\s+/);
+    return withUrl({
+      source: 'govjobs', sourceLabel: 'Govjobs.lk', sourceJobId: String(it.guid ?? it.link ?? ''), url: String(it.link ?? ''),
+      title: role || left || heading, company: employer || right.join(' – ') || 'Government of Sri Lanka',
+      location: 'Sri Lanka', country: 'Sri Lanka', workMode: 'onsite', category: 'Government',
+      postedAt: parseDate(it.pubDate), deadline: close ? parseDeadline(`${close[1]}-${close[2]!.padStart(2, '0')}-${close[3]!.padStart(2, '0')}`) : null,
+      description: `${heading}\n${text}`.trim(),
+    });
+  });
+}
+
+/** "Assistant Quantity Surveyor, Technical Officer jobs at Land Reclamation & Development Company Limited". */
+export function parseGovdoc(body: string): RawJob[] {
+  return feedItems(body, 'Govdoc Jobs').flatMap((it: any) => {
+    const heading = htmlToText(String(it.title ?? ''));
+    const m = heading.match(/^(.+?)\s+jobs?\s+at\s+(.+)$/i);
+    return withUrl({
+      source: 'govdoc', sourceLabel: 'Govdoc Jobs', sourceJobId: String(it.guid ?? it.link ?? ''), url: String(it.link ?? ''),
+      title: m?.[1] ?? heading, company: m?.[2] ?? 'Government of Sri Lanka',
+      location: 'Sri Lanka', country: 'Sri Lanka', workMode: 'onsite', category: 'Government',
+      postedAt: parseDate(it.pubDate), description: `${heading}\n${htmlToText(String(it.description ?? ''))}`.trim(),
+    });
+  });
+}
+
+function governmentFeed(id: string, label: string, url: string, parse: (body: string) => RawJob[], note: string): SourceAdapter {
+  return {
+    id, label, region: 'Government', scope: 'local', note,
+    search: async (ctx) => {
+      if (!(await robotsAllow(ctx, url))) throw new SourceError(`${label}: robots.txt does not allow its feed`);
+      const res = await httpGet(ctx, url);
+      if (!res.ok) throw new SourceError(`${label}: HTTP ${res.status}`);
+      return parse(await res.text());
+    },
+  };
+}
+
+const govjobs = governmentFeed('govjobs', 'Govjobs.lk', 'https://www.govjobs.lk/feed/', parseGovjobs,
+  'Government vacancies, read from the feed Govjobs.lk publishes: its newest posts, usually with the closing date.');
+const govdoc = governmentFeed('govdoc', 'Govdoc Jobs', 'https://job.govdoc.lk/feed', parseGovdoc,
+  'Government vacancies, read from the feed job.govdoc.lk publishes: its newest posts. Closing dates are on the linked page.');
+
 // ── Himalayas ───────────────────────────────────────────────────────────────
 function himalayasJob(j: any): RawJob[] {
   const restrictions: any[] = j.locationRestrictions ?? [];
@@ -71,12 +170,12 @@ function himalayasJob(j: any): RawJob[] {
 }
 
 const himalayas: SourceAdapter = {
-  id: 'himalayas', label: 'Himalayas', region: 'Remote', scope: 'local',
-  note: 'Remote jobs, including those open to Sri Lanka. Rate limit is shared unless you add a free key.',
+  id: 'himalayas', label: 'Himalayas', region: 'Remote', scope: 'both',
+  note: 'Remote jobs. With Local on it searches jobs for Sri Lanka, and with Global on it searches worldwide. Rate limit is shared unless you add a free key.',
   search: async (ctx) => {
     const headers: Record<string, string> = ctx.env.HIMALAYAS_API_KEY ? { Authorization: `Bearer ${ctx.env.HIMALAYAS_API_KEY}` } : {};
     const seen = new Map<string, RawJob>();
-    const countries = ctx.settings.global_enabled ? ['Sri Lanka', ''] : ['Sri Lanka'];
+    const countries = [...(ctx.settings.local_enabled ? ['Sri Lanka'] : []), ...(ctx.settings.global_enabled ? [''] : [])];
     for (const country of countries) {
       for (const term of ctx.keywords.slice(0, 3)) {
         const params = new URLSearchParams({ q: term, sort: 'recent' });
@@ -117,11 +216,11 @@ function jobicyJob(j: any): RawJob[] {
 }
 
 const jobicy: SourceAdapter = {
-  id: 'jobicy', label: 'Jobicy', region: 'Remote', scope: 'local',
-  note: 'Remote jobs from the last 7 days. Jobicy asks for one sync an hour at most, which this schedule respects.',
+  id: 'jobicy', label: 'Jobicy', region: 'Remote', scope: 'global',
+  note: 'International remote jobs from the last 7 days, searched with Global on. Jobicy asks for one sync an hour at most, which this schedule respects.',
   search: async (ctx) => {
     const data = await getJson(ctx, 'https://jobicy.com/api/jobs?count=100&geo=apac');
-    const global = ctx.settings.global_enabled ? await getJson(ctx, 'https://jobicy.com/api/jobs?count=100') : { jobs: [] };
+    const global = await getJson(ctx, 'https://jobicy.com/api/jobs?count=100');
     return [...(data.jobs ?? []), ...(global.jobs ?? [])].flatMap(jobicyJob);
   },
   verify: async (jobs, ctx) => {
@@ -151,8 +250,8 @@ function remotiveJob(j: any): RawJob[] {
 }
 
 const remotive: SourceAdapter = {
-  id: 'remotive', label: 'Remotive', region: 'Remote', scope: 'local', maxPerDay: 4,
-  note: 'Remote jobs, shown 24 hours after publication. Remotive asks for no more than 4 requests a day, so extra manual searches skip it.',
+  id: 'remotive', label: 'Remotive', region: 'Remote', scope: 'global', maxPerDay: 4,
+  note: 'International remote jobs, searched with Global on, and shown 24 hours after publication. Remotive asks for no more than 4 requests a day, so extra manual searches skip it.',
   search: async (ctx) => (await getJson(ctx, 'https://remotive.com/api/remote-jobs?limit=200')).jobs?.flatMap(remotiveJob) ?? [],
 };
 
@@ -171,7 +270,7 @@ function remoteOkJob(j: any): RawJob[] {
 
 const remoteok: SourceAdapter = {
   id: 'remoteok', label: 'Remote OK', region: 'Remote', scope: 'global',
-  note: 'International remote jobs. Each listing links back to Remote OK, as its terms require.',
+  note: 'International remote jobs, searched with Global on. Each listing links back to Remote OK, as its terms require.',
   search: async (ctx) => {
     const data = await getJson<any[]>(ctx, 'https://remoteok.com/api');
     return Array.isArray(data) ? data.flatMap(remoteOkJob) : [];
@@ -180,12 +279,12 @@ const remoteok: SourceAdapter = {
 
 // ── Jooble (needs a free key) ───────────────────────────────────────────────
 const jooble: SourceAdapter = {
-  id: 'jooble', label: 'Jooble', region: 'Sri Lanka', scope: 'local',
-  note: 'Aggregated listings. Needs a free key from Jooble, emailed after a short form. Descriptions are excerpts.',
+  id: 'jooble', label: 'Jooble', region: 'Sri Lanka', scope: 'both',
+  note: 'Aggregated listings: Sri Lanka with Local on, worldwide with Global on. Needs a free key from Jooble, emailed after a short form. Descriptions are excerpts.',
   missingConfig: (ctx) => (ctx.env.JOOBLE_API_KEY ? null : 'Add JOOBLE_API_KEY to turn this on.'),
   search: async (ctx) => {
     const out = new Map<string, RawJob>();
-    const locations = ctx.settings.global_enabled ? ['Sri Lanka', ''] : ['Sri Lanka'];
+    const locations = [...(ctx.settings.local_enabled ? ['Sri Lanka'] : []), ...(ctx.settings.global_enabled ? [''] : [])];
     for (const location of locations) {
       for (const keywords of ctx.keywords.slice(0, 3)) {
         const res = await httpGet(ctx, `https://jooble.org/api/${ctx.env.JOOBLE_API_KEY}`, {
@@ -240,7 +339,7 @@ const ashby: BoardFetch = async (slug, ctx, id, label) => {
 };
 
 const smartrecruiters: BoardFetch = async (slug, ctx, id, label) => {
-  const country = ctx.settings.global_enabled ? '' : '&country=lk';
+  const country = ctx.settings.global_enabled ? '' : '&country=lk'; // With Global off, Local must be on.
   const data = await getJson(ctx, `https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=100${country}`);
   return (data.content ?? []).flatMap((j: any) => withUrl({
     source: id, sourceLabel: label, sourceJobId: j.id, url: `https://jobs.smartrecruiters.com/${slug}/${j.id}`, title: j.name,
@@ -288,27 +387,23 @@ export function slugName(slug: string) {
 }
 
 export function fixedSources(): SourceAdapter[] {
-  return [itpro, himalayas, jobicy, remotive, remoteok, jooble];
+  return [itpro, jobpal, govjobs, govdoc, himalayas, jobicy, remotive, remoteok, jooble];
 }
 
 export function feedSource(url: string): SourceAdapter {
   const id = `feed:${new URL(url).host}`;
   const label = new URL(url).host.replace(/^www\./, '');
   return {
-    id, label, region: 'Your feed', scope: 'local',
+    id, label, region: 'Your feed', scope: 'both',
     note: 'An RSS feed you added. It is read only if the site\'s robots.txt allows it.',
     search: (ctx) => fetchFeed(ctx, url, id, label),
   };
 }
 
 /** Sites people expect to see that this app must not, or cannot, search. */
-export const UNAVAILABLE_SOURCES: { label: string; reason: string; searchUrl: (q: string) => string }[] = [
-  { label: 'LinkedIn Jobs', reason: 'No public job-search API, and its terms forbid automated collection.', searchUrl: (q) => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q)}&location=Sri%20Lanka` },
-  { label: 'TopJobs.lk', reason: 'Its robots rules block automated access, and it publishes no feed or API.', searchUrl: () => 'https://www.topjobs.lk/' },
-  { label: 'Rooster Jobs', reason: 'Its terms ban scraping without written permission. Ask Rooster if you want this approved.', searchUrl: () => 'https://rooster.jobs/' },
-  { label: 'XpressJobs', reason: 'No public feed or API found, and pages need a full browser to load.', searchUrl: () => 'https://xpress.jobs/' },
-  { label: 'JobMasters.lk', reason: 'Permitted access could not be confirmed, so it is not searched.', searchUrl: () => 'https://jobmasters.lk/' },
-  { label: 'Finders.lk', reason: 'Permitted access could not be confirmed, so it is not searched.', searchUrl: () => 'https://finders.lk/' },
-  { label: 'Indeed', reason: 'Its public job-search API was withdrawn, and remaining APIs do not read listings.', searchUrl: (q) => `https://www.indeed.com/jobs?q=${encodeURIComponent(q)}&l=Sri+Lanka` },
-  { label: 'Glassdoor', reason: 'No public job-search API is available.', searchUrl: (q) => `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodeURIComponent(q)}` },
+export const UNAVAILABLE_SOURCES: { label: string; reason: string; government?: boolean; searchUrl: (q: string) => string }[] = [
+  { label: 'LinkedIn Jobs', reason: 'No public job-search API, and its terms forbid automated collection. Jobs has LinkedIn searches built from your CV.', searchUrl: (q) => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q)}&location=Sri%20Lanka` },
+  ...SRI_LANKA_SITES.filter((site) => !site.automatic).map((site) => ({ label: site.label, reason: site.reason, searchUrl: (q: string) => siteSearchUrl(site, q) })),
+  ...GLOBAL_SITES.filter((site) => !site.automatic).map((site) => ({ label: site.label, reason: site.reason, searchUrl: (q: string) => siteSearchUrl(site, q) })),
+  ...GOVERNMENT_SITES.filter((site) => !site.automatic).map((site) => ({ label: site.label, reason: site.reason, government: true, searchUrl: (q: string) => siteSearchUrl(site, q) })),
 ];

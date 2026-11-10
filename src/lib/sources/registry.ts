@@ -17,7 +17,7 @@ export async function enabledCareerPages(): Promise<CareerPage[]> {
 export function liveContext(over: Partial<SourceContext> = {}): SourceContext {
   return {
     fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)), now: new Date(), keywords: [],
-    settings: { global_enabled: true, custom_feeds: [] }, env: process.env, robotsCache: new Map(), ...over,
+    settings: { local_enabled: true, global_enabled: true, custom_feeds: [] }, env: process.env, robotsCache: new Map(), ...over,
   };
 }
 

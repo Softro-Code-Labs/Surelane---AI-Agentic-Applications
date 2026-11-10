@@ -5,6 +5,7 @@ import { one } from '@/lib/db';
 import { requirementLines, scoreJob } from '@/lib/match/score';
 import { classify } from '@/lib/search/classify';
 import { getCv, getSettings } from '@/lib/settings';
+import { isLinkedinUrl, linkedinJobId, linkedinJobUrl } from '@/lib/linkedin';
 import { jobFingerprint, safeUrl } from '@/lib/text';
 
 const body = z.object({
@@ -19,20 +20,28 @@ export async function POST(req: Request) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Enter the title, company and at least a few lines of the job description.' }, { status: 400 });
   const j = parsed.data;
-  const url = safeUrl(j.url);
+  const linkedin = isLinkedinUrl(j.url);
+  const linkedinId = linkedin ? linkedinJobId(j.url) : null;
+  if (linkedin && !linkedinId) {
+    return NextResponse.json({ error: 'That LinkedIn link is not for one job. Open the job on LinkedIn, then copy the link from the address bar or from Share > Copy link.' }, { status: 400 });
+  }
+  const url = linkedinId ? linkedinJobUrl(linkedinId) : safeUrl(j.url);
   if (!url) return NextResponse.json({ error: 'Enter the full link to the job, starting with https://' }, { status: 400 });
+  const known = await one<{ id: string }>(`SELECT id FROM jobs WHERE url = $1 ORDER BY id LIMIT 1`, [url]);
+  if (known) return NextResponse.json({ ok: true, id: known.id, existing: true });
+  const label = linkedin ? 'LinkedIn, added by you' : 'Added by you';
   const cv = await getCv();
   if (!cv) return NextResponse.json({ error: 'Upload your CV first, so this job can be scored.' }, { status: 409 });
   const deadline = j.deadline ? new Date(j.deadline) : null;
-  const raw = { source: 'manual', sourceLabel: 'Added by you', url, title: j.title, company: j.company, location: j.location, description: j.description, deadline };
+  const raw = { source: 'manual', sourceLabel: label, url, title: j.title, company: j.company, location: j.location, description: j.description, deadline };
   const c = classify(raw);
   const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: c.workMode }, cv.profile, await getSettings());
   const row = await one<{ id: string }>(
     `INSERT INTO jobs (fingerprint, source, source_label, url, sources, title, company, location, country, market, work_mode, sl_eligibility, deadline, description,
        requirements, verified_at, verify_method, score, tier, scored_by, matching_skills, missing_skills, mandatory_missing, explanation, suitability, profile_version, notified_at)
-     VALUES ($1,'manual','Added by you',$2,'[]'::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),'added_by_you',$13,$14,'rules',$15,$16,$17,$18,$19,$20,now())
+     VALUES ($1,'manual',$21,$2,'[]'::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now(),'added_by_you',$13,$14,'rules',$15,$16,$17,$18,$19,$20,now())
      ON CONFLICT (fingerprint) DO UPDATE SET last_seen_at=now() RETURNING id`,
     [jobFingerprint({ title: j.title, company: j.company, location: j.location, workMode: c.workMode }), url, j.title, j.company, j.location, c.country, c.market, c.workMode, c.slEligibility,
-      deadline, j.description, requirementLines(j.description).required, m.score, m.tier ?? 'Potential', m.matchingSkills, m.missingSkills, m.mandatoryMissing, m.explanation, m.suitability, cv.profile_version]);
+      deadline, j.description, requirementLines(j.description).required, m.score, m.tier ?? 'Potential', m.matchingSkills, m.missingSkills, m.mandatoryMissing, m.explanation, m.suitability, cv.profile_version, label]);
   return NextResponse.json({ ok: true, id: row!.id });
 }

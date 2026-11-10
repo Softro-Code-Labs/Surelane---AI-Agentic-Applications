@@ -18,7 +18,7 @@ export function classify(j: RawJob): { market: Market; country: string | null; w
 }
 
 export type FilterSettings = {
-  global_enabled: boolean; max_post_age_days: number; remote_pref: string; preferred_countries: string[];
+  local_enabled: boolean; global_enabled: boolean; max_post_age_days: number; remote_pref: string; preferred_countries: string[];
 };
 
 export type Rejection = { kind: 'expired' | 'closed' | 'outdated' | 'scope' | 'preference'; reason: string };
@@ -31,7 +31,8 @@ export function rejectReason(j: RawJob, market: Market, workMode: string, eligib
   if (!stillOpen && j.postedAt && now.getTime() - j.postedAt.getTime() > s.max_post_age_days * 86_400_000) {
     return { kind: 'outdated', reason: `Posted more than ${s.max_post_age_days} days ago with no later deadline` };
   }
-  if (!s.global_enabled && market === 'international') return { kind: 'scope', reason: 'Outside Sri Lanka and not open to applicants here' };
+  if (market === 'sri_lanka' && !s.local_enabled) return { kind: 'scope', reason: 'A job in Sri Lanka, and Local job opportunities are off' };
+  if (market !== 'sri_lanka' && !s.global_enabled) return { kind: 'scope', reason: 'An international job, and Global job opportunities are off' };
   if (s.remote_pref !== 'any' && workMode !== 'unknown' && workMode !== s.remote_pref) {
     return { kind: 'preference', reason: `Not a ${s.remote_pref} role` };
   }

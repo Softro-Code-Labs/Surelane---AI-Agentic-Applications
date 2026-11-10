@@ -21,7 +21,7 @@ export default async function Storage() {
     ['Next scheduled cleanup', formatColombo(nextCleanup(new Date()))],
     ['Retention period', `${RETENTION_DAYS} days`],
   ];
-  const kept = ['Your active CV', 'Your candidate profile', 'Your account', `Application records (${s.counts.applications ?? 0})`, 'Your settings and preferences', 'Your career page list'];
+  const kept = ['Your active CV', 'Your cover letter', 'Your candidate profile', 'Your account', `Application records (${s.counts.applications ?? 0})`, 'Your settings and preferences', 'Your career page list'];
   return (
     <Page>
       <PageHead title="Storage" intro={`Job history older than ${RETENTION_DAYS} days is deleted automatically every day.`} />

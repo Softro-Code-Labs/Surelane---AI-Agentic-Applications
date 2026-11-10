@@ -3,7 +3,7 @@ import type { CandidateProfile } from '../cv/parse';
 import { one, q } from '../db';
 import { scoreJob, type MatchResult } from '../match/score';
 import { sendRunEmail } from '../notify/email';
-import { RECOMMENDABLE, getCv, getSettings, scopeSql, type Settings } from '../settings';
+import { RECOMMENDABLE, SCOPE_OFF, getCv, getSettings, scopeSql, searchesOff, type Settings } from '../settings';
 import { DETAILS_PER_RUN } from '../sources/career';
 import { buildSources, enabledCareerPages, saveOutcome } from '../sources/registry';
 import { SourceSkip } from '../sources/types';
@@ -177,7 +177,9 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
     const cv = await getCv();
     if (!cv) return await finish('skipped', 'No CV uploaded, so there was nothing to match against.');
     const settings = await getSettings();
-    await q('UPDATE search_runs SET mode=$2 WHERE id=$1', [runId, settings.global_enabled ? 'global' : 'local']);
+    if (searchesOff(settings)) return await finish('skipped', SCOPE_OFF);
+    // 'global' meant Sri Lanka and international before Local had its own switch, so both-on keeps that value.
+    await q('UPDATE search_runs SET mode=$2 WHERE id=$1', [runId, settings.global_enabled ? (settings.local_enabled ? 'global' : 'global_only') : 'local']);
 
     const profile = cv.profile;
     const version = String(cv.profile_version);
@@ -199,7 +201,8 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
         `INSERT INTO search_run_sources (run_id, source, label, status, jobs_found, error, duration_ms, checked_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [runId, source.id, source.label, status, n, error, Date.now() - started, clock()]);
 
-      if (source.scope === 'global' && !settings.global_enabled) { await record('skipped', 0, 'Global search is off'); continue; }
+      if (source.scope === 'global' && !settings.global_enabled) { await record('skipped', 0, 'Global job opportunities are off'); continue; }
+      if (source.scope === 'local' && !settings.local_enabled) { await record('skipped', 0, 'Local job opportunities are off'); continue; }
       const missing = source.missingConfig?.(ctx);
       if (missing) { await record('skipped', 0, missing); continue; }
       if (source.maxPerDay && (await usedToday(source.id, now)) >= source.maxPerDay) {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { q, one } from '../db';
 import { formatColombo } from '../schedule';
-import { RECOMMENDABLE, getSettings, scopeSql } from '../settings';
+import { RECOMMENDABLE, getSettings, isLocalMarket, searchesOff, type Scope } from '../settings';
 import { escapeHtml as e, truncate } from '../text';
 
 type Env = Record<string, string | undefined>;
@@ -95,11 +95,29 @@ function shell(title: string, body: string, appUrl?: string) {
   </td></tr></table></td></tr></table></body></html>`;
 }
 
-export function matchesEmail(jobs: EmailJob[], appUrl?: string) {
-  const strong = jobs.filter((j) => j.tier === 'Strong').length;
-  const subject = `${jobs.length} new job match${jobs.length === 1 ? '' : 'es'}${strong ? `, ${strong} strong` : ''}`;
-  const html = shell(subject, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px">${jobs.map((j) => jobBlock(j, appUrl)).join('')}</table>`, appUrl);
-  const text = jobs.map((j) => `${j.score}% ${j.tier}: ${j.title} at ${j.company} (${j.location})\n${j.url}`).join('\n\n');
+export const SECTION_TITLE = { local: 'Local Job Opportunities (Sri Lanka)', global: 'Global Job Opportunities (International)' } as const;
+
+/** Local and global jobs are never mixed: each switched-on scope gets its own labelled section. */
+export function emailSections(jobs: EmailJob[], scope: Scope) {
+  return [
+    ...(scope.local_enabled ? [{ key: 'local' as const, title: SECTION_TITLE.local, jobs: jobs.filter((j) => isLocalMarket(j.market)) }] : []),
+    ...(scope.global_enabled ? [{ key: 'global' as const, title: SECTION_TITLE.global, jobs: jobs.filter((j) => !isLocalMarket(j.market)) }] : []),
+  ];
+}
+
+export function matchesEmail(jobs: EmailJob[], appUrl?: string, scope: Scope = { local_enabled: true, global_enabled: false }) {
+  const sections = emailSections(jobs, scope);
+  const shown = sections.flatMap((x) => x.jobs);
+  const strong = shown.filter((j) => j.tier === 'Strong').length;
+  const split = sections.length > 1 ? ` (${sections.map((x) => `${x.jobs.length} ${x.key}`).join(', ')})` : '';
+  const subject = `${shown.length} new job match${shown.length === 1 ? '' : 'es'}${split}${strong ? `, ${strong} strong` : ''}`;
+  const html = shell(subject, sections.map((x) => `
+    <div style="font-size:17px;font-weight:700;color:${PETROL};margin:24px 0 2px">${e(x.title)}</div>
+    <div style="font-size:13px;color:${MUTED}">${x.jobs.length ? `${x.jobs.length} new match${x.jobs.length === 1 ? '' : 'es'}` : `No new ${x.key} matches this time.`}</div>
+    ${x.jobs.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px">${x.jobs.map((j) => jobBlock(j, appUrl)).join('')}</table>` : ''}`).join(''), appUrl);
+  const text = sections.map((x) => `${x.title.toUpperCase()}\n${x.jobs.length
+    ? x.jobs.map((j) => `${j.score}% ${j.tier}: ${j.title} at ${j.company} (${j.location})\n${j.url}`).join('\n\n')
+    : `No new ${x.key} matches this time.`}`).join('\n\n\n');
   return { subject, html, text };
 }
 
@@ -137,18 +155,23 @@ export async function sendTestEmail(recipient: string, env: Env = process.env) {
 /** Every rule that can stop an email lives here, and is read at the moment of sending. */
 export async function sendRunEmail(runId: string, { env = process.env, now = () => new Date() }: Opts = {}): Promise<'sent' | 'skipped' | 'failed'> {
   const s = await getSettings();
-  if (!s.agent_enabled || !s.email_enabled || !s.email_recipient) return 'skipped';
+  if (!s.agent_enabled || !s.email_enabled || !s.email_recipient || searchesOff(s)) return 'skipped';
 
-  const jobs = await q<EmailJob>(
-    `SELECT j.* FROM jobs j WHERE ${RECOMMENDABLE} ${scopeSql(s)}
+  // Each scope is picked separately, so a busy one cannot crowd the other out of the email.
+  const pick = (market: string) => q<EmailJob>(
+    `SELECT j.* FROM jobs j WHERE ${RECOMMENDABLE} AND ${market}
        AND j.notified_at IS NULL AND j.score >= $1 ${s.email_mode === 'strong' ? `AND j.tier = 'Strong'` : ''}
      ORDER BY j.score DESC LIMIT 25`, [s.min_score]);
+  const jobs = [
+    ...(s.local_enabled ? await pick(`j.market = 'sri_lanka'`) : []),
+    ...(s.global_enabled ? await pick(`j.market <> 'sri_lanka'`) : []),
+  ];
   const appUrl = env.APP_URL?.replace(/\/$/, '');
 
   if (!jobs.length && s.email_no_results === 'silent') return 'skipped';
 
   const kind = jobs.length ? 'matches' : 'no_results';
-  const mail = jobs.length ? matchesEmail(jobs, appUrl)
+  const mail = jobs.length ? matchesEmail(jobs, appUrl, s)
     : noResultsEmail(await q(`SELECT label, status FROM search_run_sources WHERE run_id = $1`, [runId]), appUrl);
   // Logged, not skipped: the key can be in Vercel but missing from GitHub, where this runs.
   if (!emailConfigured(env)) {

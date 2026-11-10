@@ -14,7 +14,7 @@ const LANES: Lane[] = [
   { href: '/', label: 'Today', icon: Route },
   { href: '/jobs', label: 'Jobs', icon: BriefcaseBusiness },
   { href: '/tracker', label: 'Applications', icon: ClipboardList },
-  { href: '/cv', label: 'You', icon: UserRound, tabs: [{ href: '/cv', label: 'My CV' }, { href: '/insights', label: 'Career insights' }] },
+  { href: '/cv', label: 'You', icon: UserRound, tabs: [{ href: '/cv', label: 'My CV' }, { href: '/cover-letter', label: 'Cover letter' }, { href: '/insights', label: 'Career insights' }] },
   {
     href: '/settings', label: 'Search setup', short: 'Setup', icon: SlidersHorizontal,
     tabs: [{ href: '/settings', label: 'Search settings' }, { href: '/careers', label: 'Career pages' }, { href: '/sources', label: 'Job sources' }, { href: '/history', label: 'Search history' }, { href: '/storage', label: 'Storage' }],

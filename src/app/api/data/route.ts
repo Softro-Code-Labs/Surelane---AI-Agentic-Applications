@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
   if (action === 'delete_account') {
-    await q('TRUNCATE jobs, search_runs, search_run_sources, search_requests, search_results, notifications, ai_tasks, cleanup_runs, applications, career_pages, cv, users, sessions, login_attempts CASCADE');
+    await q('TRUNCATE jobs, search_runs, search_run_sources, search_requests, search_results, notifications, ai_tasks, cleanup_runs, applications, career_pages, cv, cover_letter, users, sessions, login_attempts CASCADE');
     await q(`UPDATE settings SET email_recipient = NULL, updated_at = now()`);
     await destroySession();
     return NextResponse.json({ ok: true });

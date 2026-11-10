@@ -3,7 +3,7 @@ import { SourceError, type SourceContext, type VerifyState } from './types';
 
 export const USER_AGENT = 'Surelane/1.0 (single-user job alerts)';
 
-const CLOSED_TEXT = /(applications? (?:are |is |have |has )?(?:now )?closed|no longer (?:accepting|available|open|active)|position (?:has been |is )?(?:filled|closed)|vacancy (?:has |is )?(?:been )?(?:closed|filled|expired)|this job (?:has |is )?(?:been )?(?:closed|expired|removed)|job (?:post|posting|listing)? ?(?:has )?expired|expired on \d|closing date has passed)/i;
+const CLOSED_TEXT = /(applications? (?:are |is |have |has )?(?:now )?closed|no longer (?:accepting|available|open|active)|position (?:has been |is )?(?:filled|closed)|vacancy (?:has |is )?(?:been )?(?:closed|filled|expired)|this job (?:has |is )?(?:been )?(?:closed|expired|removed)|job (?:post|posting|listing)? ?(?:has )?expired|(?:this )?listing has expired|expired on \d|closing date has passed)/i;
 
 export function looksClosed(text: string): boolean {
   return CLOSED_TEXT.test(text);

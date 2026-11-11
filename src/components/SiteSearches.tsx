@@ -1,8 +1,7 @@
 import { ChevronDown, ExternalLink, Globe } from 'lucide-react';
 import type { LinkedinSearch } from '@/lib/linkedin';
 import type { SiteSearch } from '@/lib/sites';
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+import { plural } from '@/lib/plural';
 
 /**
  * Searches on job sites that Surelane must not read itself, built from the CV.

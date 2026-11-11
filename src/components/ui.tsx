@@ -32,10 +32,6 @@ export function Section({ title, hint, aside, children, id, plain = false, class
   );
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`card ${className}`}>{children}</div>;
-}
-
 /** A settings group: what it is on the left, the controls on the right. */
 export function SettingGroup({ title, hint, children, id }: { title: string; hint?: ReactNode; children: ReactNode; id?: string }) {
   return (

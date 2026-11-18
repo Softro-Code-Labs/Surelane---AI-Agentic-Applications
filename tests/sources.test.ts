@@ -110,14 +110,10 @@ describe('source adapters', () => {
     expect(detectAts('https://jobs.lever.co/../etc')).toBeNull();
     expect(parseEntry('lever:../../etc')).toBeNull();
   });
-  it('needs a key before calling Jooble', () => {
-    expect(by('jooble').missingConfig!(ctx({}))).toMatch(/JOOBLE_API_KEY/);
-    expect(by('jooble').missingConfig!(ctx({}, { env: { JOOBLE_API_KEY: 'k' } }))).toBeNull();
-  });
   it('never configures an adapter for the unavailable platforms', () => {
     const ids = buildSources({ custom_feeds: [] }).map((s) => s.label.toLowerCase());
     for (const u of UNAVAILABLE_SOURCES) expect(ids.join()).not.toContain(u.label.toLowerCase().replace(/ jobs$/, ''));
-    expect(UNAVAILABLE_SOURCES.map((u) => u.label)).toEqual(expect.arrayContaining(['LinkedIn Jobs', 'TopJobs.lk', 'Rooster Jobs', 'JobMasters.lk', 'Finders.lk', 'Indeed', 'Glassdoor']));
+    expect(UNAVAILABLE_SOURCES.map((u) => u.label)).toEqual(expect.arrayContaining(['LinkedIn Jobs', 'TopJobs.lk', 'Rooster Jobs', 'JobMasters.lk', 'Ceylon Vacancy', 'Indeed', 'Glassdoor']));
   });
 });
 

@@ -21,13 +21,14 @@ describe('Local and Global switches', () => {
   it('give every source the right scope', () => {
     const scope = Object.fromEntries(buildSources({ custom_feeds: ['https://example.lk/feed'] }).map((s) => [s.id, s.scope]));
     expect(scope).toEqual({
-      itpro: 'local', jobpal: 'local', govjobs: 'local', govdoc: 'local',
-      himalayas: 'both', jooble: 'both', 'feed:example.lk': 'both',
-      jobicy: 'global', remotive: 'global', remoteok: 'global',
+      itpro: 'local', jobpal: 'local', observerjobs: 'local', govjobs: 'local', govdoc: 'local', govhub: 'local',
+      gazettelk: 'local', nearjobs: 'local', finders: 'local',
+      himalayas: 'both', reliefweb: 'both', 'feed:example.lk': 'both',
+      jobify: 'global', wwr: 'global', jobicy: 'global', remotive: 'global', remoteok: 'global',
     });
   });
 
-  it('make Himalayas and Jooble search Sri Lanka, the world, or both', async () => {
+  it('make Himalayas search Sri Lanka, the world, or both', async () => {
     const asked: string[] = [];
     const ctx = (local_enabled: boolean, global_enabled: boolean): SourceContext => ({
       fetch: (async (url: string, init?: RequestInit) => {
@@ -35,25 +36,21 @@ describe('Local and Global switches', () => {
         return new Response(JSON.stringify({ jobs: [] }));
       }) as typeof fetch,
       sleep: async () => {}, now: new Date('2026-11-10T00:00:00Z'), keywords: ['accountant'],
-      settings: { local_enabled, global_enabled, custom_feeds: [] }, env: { JOOBLE_API_KEY: 'k' }, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'],
+      settings: { local_enabled, global_enabled, custom_feeds: [] }, env: {}, robotsCache: new Map(), resolveHost: async () => ['93.184.216.34'],
     });
     const himalayas = buildSources({ custom_feeds: [] }).find((s) => s.id === 'himalayas')!;
-    const jooble = buildSources({ custom_feeds: [] }).find((s) => s.id === 'jooble')!;
     const run = async (local: boolean, global: boolean) => {
       asked.length = 0;
       await himalayas.search(ctx(local, global));
-      await jooble.search(ctx(local, global));
       return [...asked];
     };
     expect(await run(true, false)).toEqual([
       'https://himalayas.app/jobs/api/search?q=accountant&sort=recent&country=Sri+Lanka',
-      'https://jooble.org/api/k {"keywords":"accountant","location":"Sri Lanka"}',
     ]);
     expect(await run(false, true)).toEqual([
       'https://himalayas.app/jobs/api/search?q=accountant&sort=recent',
-      'https://jooble.org/api/k {"keywords":"accountant","location":""}',
     ]);
-    expect(await run(true, true)).toHaveLength(4);
+    expect(await run(true, true)).toHaveLength(2);
   });
 });
 
@@ -63,39 +60,47 @@ describe('site searches follow the switches', () => {
   const ids = (sites: { id: string }[]) => sites.map((s) => s.id);
 
   it('show Sri Lankan and government sites only with Local on', () => {
-    expect(siteSearches(profile, { ...base, ...on(true, false) })).toHaveLength(SRI_LANKA_SITES.length);
+    expect(siteSearches(profile, { ...base, ...on(true, false) })).toHaveLength(SRI_LANKA_SITES.filter((x) => !x.field).length);
     expect(siteSearches(profile, { ...base, ...on(false, true) })).toEqual([]);
-    expect(siteSearches(profile, { ...base, ...on(false, true) }, GOVERNMENT_SITES, { latest: true })).toEqual([]);
+    // Only the foreign employment bureau serves Global: it is for people looking for work abroad.
+    expect(ids(siteSearches(profile, { ...base, ...on(false, true) }, GOVERNMENT_SITES, { latest: true }))).toEqual(['slbfe']);
   });
 
   it('give international platforms Sri Lanka searches for Local and worldwide ones for Global', () => {
     const local = siteSearches(profile, { ...base, ...on(true, false) }, GLOBAL_SITES);
-    expect(ids(local)).toEqual(['indeed', 'jooble', 'himalayas']);
-    expect(local.find((s) => s.id === 'indeed')!.links[0]).toEqual({ label: 'Accountant', url: 'https://www.indeed.com/jobs?q=Accountant&l=Sri+Lanka' });
+    // Indeed has no Sri Lankan site, so it is offered for jobs abroad only.
+    // ReliefWeb also lists NGO jobs in Sri Lanka.
+    expect(ids(local)).toEqual(['himalayas', 'reliefweb']);
     expect(local.find((s) => s.id === 'himalayas')!.links[0]!.url).toBe('https://himalayas.app/jobs/countries/sri-lanka?q=Accountant');
 
     const global = siteSearches(profile, { ...base, ...on(false, true) }, GLOBAL_SITES);
-    expect(ids(global)).toEqual(['indeed', 'glassdoor', 'jooble', 'himalayas', 'jobicy', 'remotive', 'remoteok']);
+    // Boards for one field (health, teaching, hospitality) are left out for an accountant.
+    expect(ids(global)).toEqual(['indeed', 'glassdoor', 'himalayas', 'jobicy', 'remotive', 'remoteok', 'wwr', 'workingnomads', 'remoteco', 'dynamite',
+      'bayt', 'gulftalent', 'jobmaldives', 'careermaldives', 'mycareersfuture', 'jobstreet', 'seek', 'reed', 'jobbank', 'eures', 'reliefweb', 'idealist', 'uncareers']);
+    expect(global.find((s) => s.id === 'bayt')!.links[0]!.url).toBe('https://www.bayt.com/en/international/jobs/accountant-jobs/');
+    expect(global.find((s) => s.id === 'reed')!.links[0]!.url).toBe('https://www.reed.co.uk/jobs/accountant-jobs');
+    expect(global.find((s) => s.id === 'gulftalent')!.links[0]!.url).toBe('https://www.gulftalent.com/jobs/search?search_keyword=Accountant');
     expect(global.find((s) => s.id === 'indeed')!.links[0]!.url).toBe('https://www.indeed.com/jobs?q=Accountant');
-    expect(global.find((s) => s.id === 'jooble')!.links[0]!.url).toBe('https://jooble.org/SearchResult?ukw=Accountant');
     expect(global.find((s) => s.id === 'jobicy')!.links[0]!.url).toBe('https://jobicy.com/jobs/?search_keywords=Accountant');
     expect(global.find((s) => s.id === 'remotive')!.links[0]!.url).toBe('https://remotive.com/remote-jobs?query=Accountant');
     expect(global.find((s) => s.id === 'glassdoor')!.links[0]!.url).toBe('https://www.glassdoor.com/Job/jobs.htm?sc.keyword=Accountant');
 
     const both = siteSearches(profile, { ...base, ...on(true, true) }, GLOBAL_SITES);
-    expect(both.find((s) => s.id === 'indeed')!.links.map((l) => l.label)).toEqual(['Accountant · Sri Lanka', 'Excel · Sri Lanka', 'Accountant · Worldwide', 'Excel · Worldwide']);
+    expect(both.find((s) => s.id === 'himalayas')!.links.map((l) => l.label)).toEqual(['Accountant · Sri Lanka', 'Excel · Sri Lanka', 'Accountant · Worldwide', 'Excel · Worldwide']);
+    expect(both.find((s) => s.id === 'indeed')!.area).toBe('world');
   });
 
   it('search Remote OK by one-word tags only, and say which platforms are searched automatically', () => {
     const remoteok = siteSearches({ targetTitles: ['Software Engineer'], skills: ['React', 'Node.js'] }, { ...base, ...on(false, true) }, GLOBAL_SITES)
       .find((s) => s.id === 'remoteok')!;
     expect(remoteok.links.map((l) => l.url)).toEqual(['https://remoteok.com/remote-react-jobs']);
-    expect(Object.fromEntries(GLOBAL_SITES.map((s) => [s.id, s.automatic ?? false]))).toEqual({
-      indeed: false, glassdoor: false, jooble: 'key', himalayas: true, jobicy: true, remotive: true, remoteok: true,
-    });
+    expect(GLOBAL_SITES.filter((s) => s.automatic).map((s) => s.id)).toEqual(['himalayas', 'jobicy', 'remotive', 'remoteok', 'wwr', 'reliefweb']);
+    const nurse = siteSearches({ targetTitles: ['Staff Nurse'], skills: ['Patient care'] }, { ...base, ...on(false, true) }, GLOBAL_SITES);
+    expect(nurse.find((s) => s.id === 'nhs')!.links[0]!.url).toBe('https://www.jobs.nhs.uk/candidate/search/results?keyword=Staff%20Nurse');
+    expect(nurse.some((s) => s.id === 'tes' || s.id === 'caterer')).toBe(false);
     const notSearched = UNAVAILABLE_SOURCES.map((u) => u.label);
     expect(notSearched).toEqual(expect.arrayContaining(['Indeed', 'Glassdoor']));
-    for (const label of ['Jooble', 'Himalayas', 'Jobicy', 'Remotive', 'Remote OK']) expect(notSearched).not.toContain(label);
+    for (const label of ['Himalayas', 'Jobicy', 'Remotive', 'Remote OK']) expect(notSearched).not.toContain(label);
   });
 });
 

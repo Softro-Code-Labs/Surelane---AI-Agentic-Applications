@@ -67,7 +67,8 @@ Set these in `.env.local` locally, in **Vercel** for the dashboard and in **GitH
 | `OLLAMA_MODEL` | GitHub variable | Optional. Default `qwen3:1.7b` |
 | `AI_MAX_JOBS_PER_RUN`, `AI_TIME_BUDGET_SECONDS` | GitHub variable | Optional AI caps. Default 12 jobs and 420 seconds |
 | `EMAIL_FROM` | Vercel + GitHub variable | Optional. Only once you've verified your own domain in Resend |
-| `JOOBLE_API_KEY`, `HIMALAYAS_API_KEY` | GitHub secret | Optional source keys |
+| `HIMALAYAS_API_KEY` | GitHub secret | Optional key that gives Himalayas its own rate limit |
+| `RELIEFWEB_APPNAME` | GitHub secret | Optional app name approved by ReliefWeb; turns on NGO, UN and humanitarian jobs |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Vercel + GitHub | Only with `AI_PROVIDER=gemini` |
 | `DATABASE_CA_CERT` | Vercel + GitHub secret | Optional. Turns on full certificate checks for the database |
 

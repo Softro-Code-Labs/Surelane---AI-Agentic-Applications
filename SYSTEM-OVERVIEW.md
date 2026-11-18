@@ -76,10 +76,10 @@ flowchart LR
 
 | Kind | Sources |
 |---|---|
-| **Local** (Sri Lanka) | ITPro.lk, Jobpal.lk, Govjobs.lk and Govdoc Jobs (government vacancies, marked **Government**) |
-| **Global** (abroad, remote) | Jobicy, Remotive, Remote OK |
-| **Both**, filtered by your switches | Himalayas, Jooble, up to 100 company career pages, and RSS feeds you add |
-| **Not read, but searchable by you** | LinkedIn, Indeed, Glassdoor, TopJobs.lk, ikman Jobs, XpressJobs and others. Each forbids automated reading or has no permitted feed |
+| **Local** (Sri Lanka) | ITPro.lk, Jobpal.lk, Observer Jobs, Finders.lk, and the government sites Govjobs.lk, Govdoc Jobs, GovHub Jobs, Gazette.lk and NearJobs.lk |
+| **Global** (abroad, remote) | We Work Remotely, Jobify.lk (remote jobs open to Sri Lanka), Jobicy, Remotive, Remote OK. Search links cover the Gulf (Bayt, GulfTalent), the Maldives, Singapore, Malaysia, the UK, Canada, Australia, the EU, NGO and UN jobs, and field boards for health, teaching and hospitality |
+| **Both**, filtered by your switches | Himalayas, up to 100 company career pages, and RSS feeds you add |
+| **Not read, but searchable by you** | LinkedIn, TopJobs.lk, ikman Jobs, XpressJobs, JobHub.lk, HotJobs.lk, Ceylon Vacancy and about 25 others, listed most popular first on **Jobs**. Each forbids automated reading, has no permitted feed, or has not been checked yet. The survey behind this list is in `reports/` |
 
 **Career pages** are read in the most reliable way available: first a hiring system (Lever, Greenhouse, Ashby, SmartRecruiters, Workable, Recruitee), then structured job data on the page, then plain job links. If robots.txt says no, or the page needs a sign-in, it's marked **Not allowed** and left alone.
 
@@ -154,7 +154,7 @@ Setup, settings and going live are in the **[README](README.md)**.
 
 ## Good to know
 
-- **Coverage depends on your field.** ITPro.lk is IT-focused, Jobpal.lk covers every field but posts a few jobs a day, and the global sources are mostly remote roles. Outside IT, lean on the site searches in **Jobs**, Jooble and career pages.
+- **Coverage depends on your field.** ITPro.lk is IT-focused, Jobpal.lk and Observer Jobs cover every field but post a few jobs a day, and the global sources are mostly remote roles. Outside IT, lean on the site searches in **Jobs** and career pages.
 - **No check is perfect.** A site can leave a filled job up, so a confirmed job could still be gone when you apply.
 - **Always read a cover letter before sending it**, AI or not.
 - **Surelane is a working name.** It hasn't had a trademark search.

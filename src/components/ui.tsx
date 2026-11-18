@@ -32,6 +32,19 @@ export function Section({ title, hint, aside, children, id, plain = false, class
   );
 }
 
+/** A labelled group inside a Section, such as one category of a list. */
+export function SubGroup({ title, count, noun, children }: { title: string; count?: number; noun?: [string, string]; children: ReactNode }) {
+  return (
+    <section aria-label={title}>
+      <h3 className="eyebrow mb-3 flex items-center gap-2 border-b border-line pb-2">
+        {title}
+        {count !== undefined && <span className="font-normal normal-case tracking-normal">· {count}{noun ? ` ${count === 1 ? noun[0] : noun[1]}` : ''}</span>}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 /** A settings group: what it is on the left, the controls on the right. */
 export function SettingGroup({ title, hint, children, id }: { title: string; hint?: ReactNode; children: ReactNode; id?: string }) {
   return (

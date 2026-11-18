@@ -1,17 +1,23 @@
 import { q } from '../db';
 import { safeUrl } from '../text';
 import { feedSource, fixedSources } from './adapters';
-import { careerPageSource, type CareerPage } from './career';
+import { careerPageSource, findersSource, type CareerPage } from './career';
 import type { SourceAdapter, SourceContext } from './types';
 
 /** Every source this configuration can use. */
 export function buildSources(settings: { custom_feeds: string[] }, pages: CareerPage[] = []): SourceAdapter[] {
   const feeds = settings.custom_feeds.flatMap((feed) => (safeUrl(feed) ? [feedSource(safeUrl(feed)!)] : []));
-  return [...fixedSources(), ...pages.map(careerPageSource), ...feeds];
+  return [...fixedSources(), findersSource, ...pages.map(careerPageSource), ...feeds];
 }
 
 export async function enabledCareerPages(): Promise<CareerPage[]> {
   return q<CareerPage>(`SELECT id, company, url, default_location FROM career_pages WHERE enabled ORDER BY last_checked_at NULLS FIRST, id`);
+}
+
+/** Categories already used on the career pages list, A to Z, for the category dropdown. */
+export async function existingCategories(): Promise<string[]> {
+  const rows = await q<{ category: string }>(`SELECT DISTINCT category FROM career_pages WHERE category IS NOT NULL ORDER BY category`);
+  return rows.map((r) => r.category);
 }
 
 export function liveContext(over: Partial<SourceContext> = {}): SourceContext {

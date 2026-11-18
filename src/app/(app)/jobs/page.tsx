@@ -6,8 +6,8 @@ import { JobRow } from '@/components/JobRow';
 import { SiteSearches } from '@/components/SiteSearches';
 import { Empty, Page, PageHead } from '@/components/ui';
 import { recommended, type JobFilters } from '@/lib/jobs';
-import { linkedinSearches } from '@/lib/linkedin';
-import { GLOBAL_SITES, GOVERNMENT_SITES, siteSearches } from '@/lib/sites';
+import { linkedinSearches, linkedinSite } from '@/lib/linkedin';
+import { GLOBAL_SITES, GOVERNMENT_SITES, byPopularity, siteSearches } from '@/lib/sites';
 import { one } from '@/lib/db';
 import { SCOPE_OFF, getCv, getSettings, searchesOff } from '@/lib/settings';
 
@@ -33,10 +33,10 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Job
     return qs ? `/jobs?${qs}` : '/jobs';
   };
   const active = Object.values(f).some(Boolean);
-  const linkedin = cv ? linkedinSearches(cv.profile, s) : [];
-  const sites = cv ? siteSearches(cv.profile, s) : [];
-  const government = cv ? siteSearches(cv.profile, s, GOVERNMENT_SITES, { latest: true }) : [];
-  const international = cv ? siteSearches(cv.profile, s, GLOBAL_SITES) : [];
+  const linkedin = cv ? linkedinSite(linkedinSearches(cv.profile, s)) : null;
+  // Sri Lankan sites and international platforms share one list, most popular first.
+  const sites = cv ? byPopularity([...(linkedin ? [linkedin] : []), ...siteSearches(cv.profile, s), ...siteSearches(cv.profile, s, GLOBAL_SITES)]) : [];
+  const government = cv ? byPopularity(siteSearches(cv.profile, s, GOVERNMENT_SITES, { latest: true })) : [];
   return (
     <Page>
       <PageHead title="Jobs for you" eyebrow="Matched to your CV" intro={<><span className="font-semibold text-ink">{jobs.length} open {jobs.length === 1 ? 'vacancy' : 'vacancies'}</span> at {s.min_score}% or above, each confirmed open in the last 3 days.</>} action={<AddJob />} />
@@ -50,7 +50,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Job
         ))}
         {active && <Link href="/jobs" className="ml-auto inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold text-road hover:underline"><X size={14} aria-hidden="true" />Clear filters</Link>}
       </nav>
-      <SiteSearches linkedin={linkedin} sites={sites} government={government} international={international} open={jobs.length === 0} />
+      <SiteSearches sites={sites} government={government} open={jobs.length === 0} />
       {jobs.length ? <div className="space-y-3">{jobs.map((j) => <JobRow key={j.id} job={j} heading="h2" />)}</div>
         : !cv ? <Empty title="Upload your CV to see jobs" action={<Link href="/cv" className="btn btn-primary">Upload your CV</Link>}>Surelane reads it to learn what fits you, then looks for open vacancies.</Empty>
         : searchesOff(s) ? <Empty title="Local and Global are both off" action={<Link href="/settings#agent" className="btn btn-primary">Open Search settings</Link>}>{SCOPE_OFF}</Empty>

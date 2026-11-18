@@ -99,7 +99,11 @@ export function jsonLdPostings(html: string): any[] {
   const $ = cheerio.load(html);
   const out: any[] = [];
   $('script[type="application/ld+json"]').each((_, el) => {
-    try { walk(JSON.parse($(el).text()), out); } catch { /* one bad block must not hide the rest */ }
+    const raw = $(el).text();
+    try { walk(JSON.parse(raw), out); return; } catch { /* try the lenient reading below */ }
+    // Some sites leave "//" comment lines or trailing commas in their job data, which strict JSON rejects.
+    const lenient = raw.split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n').replace(/,\s*([}\]])/g, '$1');
+    try { walk(JSON.parse(lenient), out); } catch { /* one bad block must not hide the rest */ }
   });
   return out;
 }
@@ -117,7 +121,9 @@ function fromPosting(p: any, page: CareerPage, base: Omit<RawJob, 'url' | 'title
   try { url = safeUrl(new URL(p.url ?? p.sameAs ?? pageUrl, pageUrl).toString()); } catch { url = safeUrl(pageUrl); }
   if (!url) return null;
   const addresses = list(p.jobLocation).map((l: any) => l?.address ?? l);
-  const places = addresses.map((a: any) => (typeof a === 'string' ? a : [a?.addressLocality, a?.addressRegion, countryName(a?.addressCountry)].filter(Boolean).join(', '))).filter(Boolean);
+  // A locality that is only map coordinates ("6.8382,79.9103") says nothing to a reader, so it is left out.
+  const locality = (a: any) => (/^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/.test(String(a?.addressLocality ?? '')) ? null : a?.addressLocality);
+  const places = addresses.map((a: any) => (typeof a === 'string' ? a : [locality(a), a?.addressRegion, countryName(a?.addressCountry)].filter(Boolean).join(', '))).filter(Boolean);
   const remote = list(p.jobLocationType).includes('TELECOMMUTE');
   const allowed = list(p.applicantLocationRequirements).map((r: any) => countryName(r)).filter(Boolean);
   const pay = p.baseSalary?.value;
@@ -292,6 +298,25 @@ export async function inspectCareerPage(page: CareerPage, ctx: SourceContext, de
     return { status: 'error', message: e instanceof Error ? e.message : String(e), jobs: [] };
   }
 }
+
+/*
+ * Finders.lk, a recruitment agency's job board. Checked in November 2026: robots.txt
+ * allows its pages, it publishes no terms that forbid automated reading, and each job
+ * page carries structured job data (schema.org JobPosting). It is read with the same
+ * reader as a career page, and its jobs are filed under Finders.lk.
+ */
+const FINDERS: CareerPage = { id: 'finders', company: 'Finders.lk', url: 'https://finders.lk/job', default_location: 'Sri Lanka' };
+
+export const findersSource: SourceAdapter = {
+  id: 'finders', label: 'Finders.lk', region: 'Sri Lanka', scope: 'local',
+  note: 'Jobs a Sri Lankan recruitment agency is hiring for, read from its public job pages and the job data on each one. A few new job pages are opened at each search.',
+  search: async (ctx) => {
+    const outcome = await inspectCareerPage(FINDERS, ctx);
+    if (outcome.status === 'not_allowed') throw new SourceSkip(outcome.message);
+    if (outcome.status === 'error') throw new SourceError(outcome.message);
+    return outcome.jobs.map((j) => ({ ...j, source: 'finders', sourceLabel: 'Finders.lk', company: j.company === FINDERS.company ? 'Not stated (via Finders.lk)' : j.company }));
+  },
+};
 
 export function careerPageSource(page: CareerPage): SourceAdapter {
   const adapter: SourceAdapter = {

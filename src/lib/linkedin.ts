@@ -1,6 +1,7 @@
 import type { CandidateProfile } from './cv/parse';
 import { cvRoles, cvSkills } from './cv-terms';
 import type { Settings } from './settings';
+import type { SiteSearch } from './sites';
 
 /*
  * LinkedIn has no public job-search API and its terms forbid automated reading,
@@ -87,6 +88,29 @@ export function linkedinSearches(p: CandidateProfile, s: Pick<Settings, 'extra_k
   const local = all.filter((x) => x.scope === 'local'), global = all.filter((x) => x.scope === 'global');
   const localPlaces = global.length ? Math.min(local.length, max - Math.min(global.length, 3)) : max;
   return [...local.slice(0, localPlaces), ...global.slice(0, max - Math.min(local.length, localPlaces))];
+}
+
+/** LinkedIn's Tranco rank on 13 November 2026, the same measure the other job sites are ordered by. */
+const LINKEDIN_POPULARITY = 17;
+
+/**
+ * LinkedIn as one job site among the others: its best searches as links, two per
+ * switched-on scope when both are on, otherwise three.
+ */
+export function linkedinSite(searches: LinkedinSearch[]): SiteSearch | null {
+  if (!searches.length) return null;
+  const local = searches.filter((s) => s.scope === 'local');
+  const global = searches.filter((s) => s.scope === 'global');
+  const both = local.length > 0 && global.length > 0;
+  const pick = both ? [...local.slice(0, 2), ...global.slice(0, 2)] : searches.slice(0, 3);
+  return {
+    id: 'linkedin', label: 'LinkedIn', automatic: false, popularity: LINKEDIN_POPULARITY, area: both ? 'both' : local.length ? 'lk' : 'world',
+    links: pick.map((s) => ({
+      // Global searches already name their place ("in Singapore", "worldwide"); local ones do not.
+      label: both && s.scope === 'local' ? `${s.label} · Sri Lanka` : s.label,
+      url: s.url, title: `${s.why} ${s.facts.join(', ')}.`,
+    })),
+  };
 }
 
 /**

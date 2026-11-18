@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanCategory, groupByCategory, resolveCategory } from '@/lib/career-categories';
+import { cleanCategory, groupByCategory, moveId, resolveCategory } from '@/lib/career-categories';
 
 describe('career page categories', () => {
   it('tidy what was typed, and treat a blank as no category', () => {
@@ -25,5 +25,17 @@ describe('career page categories', () => {
     expect(groups.map((g) => [g.category, g.pages.map((p) => p.id)])).toEqual([
       ['Banks', [3, 5]], ['it companies', [2]], ['IT companies', [4]], [null, [1, 6]],
     ]);
+  });
+});
+
+describe('ordering companies within a category', () => {
+  it('moves one company to a new place and keeps the rest in order', () => {
+    expect(moveId(['a', 'b', 'c', 'd'], 'd', 0)).toEqual(['d', 'a', 'b', 'c']);
+    expect(moveId(['a', 'b', 'c', 'd'], 'a', 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveId(['a', 'b', 'c'], 'b', 1)).toEqual(['a', 'b', 'c']);
+  });
+  it('stops at the top and bottom', () => {
+    expect(moveId(['a', 'b', 'c'], 'a', -1)).toEqual(['a', 'b', 'c']);
+    expect(moveId(['a', 'b', 'c'], 'c', 9)).toEqual(['a', 'b', 'c']);
   });
 });

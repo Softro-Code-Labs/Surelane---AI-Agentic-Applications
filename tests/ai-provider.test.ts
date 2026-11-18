@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateProfile } from '@/lib/cv/parse';
-import { DEFAULT_OLLAMA_MODEL, getProvider, profileBrief, refineMatch, stripThinking, type Provider } from '@/lib/ai/provider';
+import { CV_PROMPT_CHARS, DEFAULT_OLLAMA_MODEL, compactCvText, enrichProfile, getProvider, profileBrief, refineMatch, stripThinking, type Provider } from '@/lib/ai/provider';
 
 const profile = {
   name: 'Nimali Perera', email: 'nimali@example.com', phone: '+94 77 123 4567', headline: 'Accountant', summary: '', yearsExperience: 6, experienceLevel: 'Mid level',
@@ -91,5 +91,28 @@ describe('AI second opinion on a match', () => {
     await refineMatch(model(0.5, undefined, seen), profile, job, base);
     expect(seen[0]!.match(/x{100,}/)![0].length).toBeGreaterThan(2300);
     expect(seen[1]!.match(/x{100,}/)![0].length).toBeLessThan(1801);
+  });
+});
+
+describe('reading a CV of more than one page', () => {
+  // Two pages of about 3,800 characters each, like a real two-page CV, with the page footer repeated.
+  const page = (n: number, section: string) => [`Nimali Perera | CV | Page ${n}`, `${section.toUpperCase()}`, ...Array.from({ length: 60 }, (_, i) => `${section} line ${i + 1}: delivered month-end close and reporting work for the team.`), 'nimali@example.com | +94 77 123 4567'].join('\n');
+  const twoPages = `${page(1, 'Experience')}\n\n\n${page(2, 'Certifications')}\nCERTIFIED: Chartered Accountant (CA Sri Lanka), the last line of page two`;
+
+  it('sends both pages to the model, with blank and repeated lines removed', async () => {
+    const { f, asked } = fakeOllama(() => new Response(JSON.stringify({ message: { content: '{"headline":"Chartered Accountant"}' } })));
+    const provider = (await getProvider({ AI_PROVIDER: 'ollama' }, f))!;
+    expect(twoPages.length).toBeGreaterThan(7000);
+    await enrichProfile(provider, twoPages, profile);
+    const sent = asked[0].messages[0].content as string;
+    expect(sent).toContain('the last line of page two');
+    expect(sent.match(/nimali@example\.com \| \+94 77 123 4567/g)).toHaveLength(1);
+    // A larger context window, so the whole CV fits.
+    expect(asked[0].options.num_ctx).toBe(8192);
+  });
+
+  it('keeps a very long CV within the limit', () => {
+    const long = Array.from({ length: 2000 }, (_, i) => `Distinct line number ${i} about work done`).join('\n');
+    expect(compactCvText(long).length).toBeLessThanOrEqual(CV_PROMPT_CHARS + 1);
   });
 });

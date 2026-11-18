@@ -1,8 +1,8 @@
 'use client';
-import { Ban, Check, ExternalLink, FolderInput, LoaderCircle, Minus, RefreshCw, ScanEye, Trash2, X } from 'lucide-react';
+import { Ban, Check, ChevronDown, ExternalLink, FolderInput, GripVertical, LoaderCircle, Minus, RefreshCw, ScanEye, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { MAX_CATEGORY_LENGTH } from '@/lib/career-categories';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { MAX_CATEGORY_LENGTH, moveId } from '@/lib/career-categories';
 import { Switch, api } from './controls';
 import { ConfirmButton, useToast } from './feedback';
 import { Notice, Tag, type Tone } from './ui';
@@ -94,7 +94,95 @@ export function AddCareerPages({ categories }: { categories: string[] }) {
   );
 }
 
-export function CareerRow({ page, categories }: { page: PageRow; categories: string[] }) {
+/**
+ * One category of companies. It can be collapsed (remembered in this browser), and its
+ * companies put in your own order by dragging the handle, or with the arrow keys on it.
+ */
+export function CareerGroup({ title, pages, categories, collapsible }: { title: string | null; pages: PageRow[]; categories: string[]; collapsible: boolean }) {
+  const count = pages.length;
+  const router = useRouter();
+  const toast = useToast();
+  const ids = pages.map((p) => p.id).join(',');
+  const [order, setOrder] = useState(() => pages.map((p) => p.id));
+  useEffect(() => { setOrder(ids ? ids.split(',') : []); }, [ids]);
+  const byId = new Map(pages.map((p) => [p.id, p]));
+
+  const storageKey = `surelane:careers:open:${title ?? 'all'}`;
+  const [open, setOpen] = useState(true);
+  useEffect(() => { try { if (localStorage.getItem(storageKey) === '0') setOpen(false); } catch { /* storage may be blocked */ } }, [storageKey]);
+  const toggle = () => setOpen((was) => {
+    try { localStorage.setItem(storageKey, was ? '0' : '1'); } catch { /* storage may be blocked */ }
+    return !was;
+  });
+
+  const list = useRef<HTMLUListElement>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const before = useRef<string[]>([]);
+  const save = async (next: string[], prev: string[]) => {
+    if (next.join() === prev.join()) return;
+    try { await api('/api/career-pages/order', 'PUT', { ids: next }); router.refresh(); }
+    catch (e) { setOrder(prev); toast('bad', e instanceof Error ? e.message : 'That order did not save.'); }
+  };
+  const start = (id: string, e: PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    before.current = order;
+    setDragging(id);
+  };
+  const move = (e: PointerEvent<HTMLButtonElement>) => {
+    if (!dragging || !list.current) return;
+    // The new place is after every other row whose middle is above the pointer.
+    const others = [...list.current.querySelectorAll<HTMLElement>('[data-row]')].filter((el) => el.dataset.row !== dragging);
+    const to = others.filter((el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 < e.clientY; }).length;
+    setOrder((cur) => { const next = moveId(cur, dragging, to); return next.join() === cur.join() ? cur : next; });
+  };
+  const end = () => {
+    if (!dragging) return;
+    setDragging(null);
+    void save(order, before.current);
+  };
+  const key = (id: string, e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const at = order.indexOf(id);
+    const next = moveId(order, id, at + (e.key === 'ArrowUp' ? -1 : 1));
+    if (next.join() === order.join()) return;
+    setOrder(next);
+    void save(next, order);
+  };
+
+  const rows = (
+    <ul ref={list} className="divide-y divide-line">
+      {order.map((id) => byId.get(id)).filter((p): p is PageRow => Boolean(p)).map((p, i, all) => (
+        <CareerRow key={p.id} page={p} categories={categories} dragging={dragging === p.id}
+          handle={all.length > 1 ? (
+            <button type="button" className="btn btn-quiet btn-sm btn-icon -my-1 cursor-grab touch-none active:cursor-grabbing"
+              aria-label={`Move ${p.company}, position ${i + 1} of ${all.length}. Drag, or use the up and down arrow keys.`} title="Drag to reorder"
+              onPointerDown={(e) => start(p.id, e)} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onKeyDown={(e) => key(p.id, e)}>
+              <GripVertical size={16} aria-hidden="true" />
+            </button>
+          ) : undefined} />
+      ))}
+    </ul>
+  );
+  // With no categories in use there is one plain list, with nothing to collapse.
+  if (!collapsible) return rows;
+  return (
+    <section aria-label={title ?? 'Companies'}>
+      <h3 className="mb-3 border-b border-line pb-2">
+        <button type="button" onClick={toggle} aria-expanded={open} className="eyebrow flex w-full items-center gap-2 text-left hover:text-ink">
+          <ChevronDown size={15} aria-hidden="true" className={`shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
+          {title ?? 'No category'}
+          <span className="font-normal normal-case tracking-normal">· {count} {count === 1 ? 'company' : 'companies'}</span>
+        </button>
+      </h3>
+      {open && rows}
+    </section>
+  );
+}
+
+export function CareerRow({ page, categories, handle, dragging = false }: { page: PageRow; categories: string[]; handle?: ReactNode; dragging?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -106,7 +194,9 @@ export function CareerRow({ page, categories }: { page: PageRow; categories: str
   const status = page.last_status ? STATUS[page.last_status] : null;
   const refused = page.last_status === 'not_allowed';
   return (
-    <li className="py-4 first:pt-0 last:pb-0">
+    <li data-row={page.id} className={`flex gap-2 py-4 first:pt-0 last:pb-0 ${dragging ? 'relative z-10 rounded-xl bg-sunken shadow-lg ring-1 ring-edge' : ''}`}>
+      {handle && <div className="shrink-0 pt-px">{handle}</div>}
+      <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span className="text-[15px] font-semibold">{page.company}</span>
         {status ? <Tag tone={status.tone}><status.icon size={13} aria-hidden="true" className="-mt-px" />{status.label}</Tag> : <Tag>Not checked yet</Tag>}
@@ -148,6 +238,7 @@ export function CareerRow({ page, categories }: { page: PageRow; categories: str
       {page.last_message && page.last_status !== 'ok' && <p className={`measure mt-1 text-[15px] ${refused ? 'font-semibold text-stop-strong' : 'text-soft'}`}>{page.last_message}</p>}
       {titles.length > 0 && <p className="mt-1 text-sm text-soft">Found: {titles.join(', ')}</p>}
       {page.last_checked && <p className="text-[13px] text-soft">Last checked {page.last_checked}</p>}
+      </div>
     </li>
   );
 }

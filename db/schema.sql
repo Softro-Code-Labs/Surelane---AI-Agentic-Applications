@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS career_pages (
   last_checked_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- A grouping you choose, such as IT companies or Banks. Empty means no category.
+ALTER TABLE career_pages ADD COLUMN IF NOT EXISTS category text;
 
 -- Older installs kept company boards as a settings list. Move them across once.
 DO $$

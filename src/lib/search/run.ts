@@ -126,7 +126,7 @@ async function verifyStored(sources: SourceAdapter[], ctx: SourceContext, min: n
       }
       continue;
     }
-    if (sourceId === 'jooble' || sourceId === 'manual' || adapter?.completeListing) continue;
+    if (sourceId === 'manual' || adapter?.completeListing) continue;
     for (const j of jobs) {
       const state = await checkPage(ctx, j.url);
       if (state === 'closed') closed.push(j.id);

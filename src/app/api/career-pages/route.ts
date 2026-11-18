@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth';
+import { resolveCategory } from '@/lib/career-categories';
 import { one, q } from '@/lib/db';
 import { MAX_CAREER_PAGES, inspectCareerPage, parseEntry, type CareerPage } from '@/lib/sources/career';
-import { liveContext, saveOutcome } from '@/lib/sources/registry';
+import { existingCategories, liveContext, saveOutcome } from '@/lib/sources/registry';
 
-const body = z.object({ entries: z.string().max(20000), default_location: z.string().trim().min(2).max(100).default('Sri Lanka') });
+const body = z.object({
+  entries: z.string().max(20000),
+  default_location: z.string().trim().min(2).max(100).default('Sri Lanka'),
+  category: z.string().max(200).nullish(),
+});
 
 /** Adds pages and checks permission straight away, so a refusal shows at once. */
 export async function POST(req: Request) {
@@ -22,11 +27,12 @@ export async function POST(req: Request) {
   const count = Number((await one<{ n: string }>('SELECT count(*) n FROM career_pages'))!.n);
   if (count + entries.length > MAX_CAREER_PAGES) return NextResponse.json({ error: `The list holds ${MAX_CAREER_PAGES} companies, and you have ${count}.` }, { status: 400 });
 
+  const category = resolveCategory(parsed.data.category, await existingCategories());
   const added: CareerPage[] = [];
   for (const e of entries) {
     const row = await one<CareerPage>(
-      `INSERT INTO career_pages (company, url, default_location) VALUES ($1,$2,$3) ON CONFLICT (url) DO NOTHING RETURNING id, company, url, default_location`,
-      [e.company, e.url, parsed.data.default_location]);
+      `INSERT INTO career_pages (company, url, default_location, category) VALUES ($1,$2,$3,$4) ON CONFLICT (url) DO NOTHING RETURNING id, company, url, default_location`,
+      [e.company, e.url, parsed.data.default_location, category]);
     if (row) added.push(row);
   }
 

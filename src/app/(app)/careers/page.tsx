@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { AddCareerPages, CareerRow } from '@/components/CareerPages';
-import { Empty, Page, PageHead, Section, SubGroup, Tag } from '@/components/ui';
+import { AddCareerPages, CareerGroup } from '@/components/CareerPages';
+import { Empty, Page, PageHead, Section, Tag } from '@/components/ui';
 import { NO_CATEGORY, groupByCategory } from '@/lib/career-categories';
 import { q } from '@/lib/db';
 import { formatColombo } from '@/lib/schedule';
@@ -11,7 +11,8 @@ export const metadata: Metadata = { title: 'Career pages' };
 
 export default async function Careers() {
   const [rows, categories] = await Promise.all([
-    q(`SELECT * FROM career_pages ORDER BY (last_status = 'not_allowed') DESC NULLS LAST, company`),
+    // Your own order first; companies you have not ordered yet follow, refused ones first.
+    q(`SELECT * FROM career_pages ORDER BY sort_order NULLS LAST, (last_status = 'not_allowed') DESC NULLS LAST, company`),
     existingCategories(),
   ]);
   const pages = rows.map((r) => ({ id: r.id, company: r.company, url: r.url, enabled: r.enabled, category: r.category, last_status: r.last_status, last_message: r.last_message, last_found: r.last_found, last_checked: r.last_checked_at ? formatColombo(r.last_checked_at) : null }));
@@ -19,7 +20,6 @@ export default async function Careers() {
   const groups = groupByCategory(pages);
   // With no categories in use, a lone "No category" heading would only add noise.
   const showHeadings = groups.some((g) => g.category !== null);
-  const rowsOf = (list: typeof pages) => <ul className="divide-y divide-line">{list.map((p) => <CareerRow key={p.id} page={p} categories={categories} />)}</ul>;
   return (
     <Page>
       <PageHead title="Career pages" eyebrow="Search setup" intro="Add the companies you want to work for. Surelane checks their career pages at every search time." />
@@ -28,9 +28,7 @@ export default async function Careers() {
         {pages.length ? (
           <div className="grid gap-7">
             {groups.map((g) => (
-              showHeadings
-                ? <SubGroup key={g.category ?? ''} title={g.category ?? NO_CATEGORY} count={g.pages.length} noun={['company', 'companies']}>{rowsOf(g.pages)}</SubGroup>
-                : <div key="all">{rowsOf(g.pages)}</div>
+              <CareerGroup key={g.category ?? ''} title={g.category ?? (showHeadings ? NO_CATEGORY : null)} pages={g.pages} categories={categories} collapsible={showHeadings} />
             ))}
           </div>
         ) : <Empty title="No companies yet">Paste a career page link above. Sites that use Lever, Greenhouse, Ashby, SmartRecruiters, Workable or Recruitee work best.</Empty>}

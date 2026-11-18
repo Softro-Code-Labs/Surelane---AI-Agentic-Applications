@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS career_pages (
 );
 -- A grouping you choose, such as IT companies or Banks. Empty means no category.
 ALTER TABLE career_pages ADD COLUMN IF NOT EXISTS category text;
+-- Your own order within a category, set by dragging. Empty means not ordered yet (listed after ordered ones).
+ALTER TABLE career_pages ADD COLUMN IF NOT EXISTS sort_order integer;
 
 -- Older installs kept company boards as a settings list. Move them across once.
 DO $$

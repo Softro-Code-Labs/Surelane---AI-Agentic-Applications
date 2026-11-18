@@ -15,6 +15,13 @@ export function resolveCategory(input: string | null | undefined, existing: stri
   return existing.find((c) => c.toLowerCase() === s.toLowerCase()) ?? s;
 }
 
+/** Moves one id to position `to` (0 is first), keeping the others in order. Out-of-range positions stop at the ends. */
+export function moveId(order: string[], id: string, to: number): string[] {
+  const rest = order.filter((x) => x !== id);
+  const at = Math.max(0, Math.min(to, rest.length));
+  return [...rest.slice(0, at), id, ...rest.slice(at)];
+}
+
 /** Groups pages by category, A to Z, with uncategorised pages last. Order inside each group is kept. */
 export function groupByCategory<T extends { category: string | null }>(pages: T[]): { category: string | null; pages: T[] }[] {
   const groups = new Map<string | null, T[]>();

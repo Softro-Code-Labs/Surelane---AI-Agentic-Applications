@@ -75,3 +75,40 @@ c.save()`;
     }
   });
 });
+
+describe('a two-page CV whose projects continue on page 2', () => {
+  // The layout of a real CV: each project has a title line with "|" and dates, a detail line,
+  // and wrapped bullets. The projects section starts on page 1 and carries on over the page break.
+  const page1 = [
+    'JANE PERERA', 'Full-Stack Software Engineer', 'Colombo, Sri Lanka | +94 77 000 0000 | jane@example.com',
+    'PROFESSIONAL EXPERIENCE', 'Software Engineer | Acme Labs 2025 - Present', '• Built web apps.',
+    'PROJECTS', 'Baileyn | Bilingual E-Commerce Store Aug 2026 - Oct 2026', 'Technologies: Next.js, Supabase | Live: baileynstore.com',
+    '• Built a live online store in English and Sinhala for a coconut oil producer, designed for customers who order on a', 'phone.',
+    '• Implemented product pages with size options, cart, buy-now flow and guest checkout with cash on delivery, with delivery',
+    'fees calculated by district and order size.', '• Added order tracking by order number and one-time SMS code.',
+    '• Developed an admin dashboard with a sales chart, order status workflow from New to Cancelled, low-stock panel and', 'failed-message alerts.',
+  ];
+  const page2 = [
+    'TourVista Tours | Tour Discovery and Booking Platform Apr 2026 - Jun 2026', 'Technologies: Next.js, Mastercard Payment Gateway | Live: tourvistatours.com',
+    '• Implemented landmark search, themed attraction pages and a packages page with search and budget filter, with', 'SEO-focused page titles, descriptions and share images.',
+    'Swift Converter Hub | Privacy-First File Conversion Platform Jul 2026 - Present', '• Built 46 free tools.',
+    'One World College Website | School Website and Content Platform May 2025 - Sep 2025', 'Live: owf.lk',
+    '• Enabled non-technical staff to update site content from Excel files and shared folders, with no database access or technical', 'training.',
+    '• Live and in active use by the school.',
+    'EDUCATION', 'BSc (Hons) in Information Technology May 2025',
+    'CERTIFICATIONS', 'Spring Boot Bootcamp | STEMLink Apr 2026', '• Java fundamentals and OOP.', 'MongoDB University Certifications | MongoDB Sep 2023', '• Data Modeling Intro.',
+    'REFERENCES', 'A. Referee | Founder, Example Ltd',
+  ];
+  const p = analyseCv([...page1, ...page2].join('\n'));
+
+  it('lists every project once, by its title, including those on page 2', () => {
+    expect(p.projects).toEqual([
+      'Baileyn | Bilingual E-Commerce Store', 'TourVista Tours | Tour Discovery and Booking Platform',
+      'Swift Converter Hub | Privacy-First File Conversion Platform', 'One World College Website | School Website and Content Platform',
+    ]);
+  });
+
+  it('does not take the wrapped word "training." for a Training heading', () => {
+    expect(p.certifications).toEqual(['Spring Boot Bootcamp | STEMLink', 'MongoDB University Certifications | MongoDB']);
+  });
+});

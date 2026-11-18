@@ -3,7 +3,7 @@ import { ADJACENT, FAMILY_LABEL, FAMILY_ROLES, skillFamily, type Family } from '
 import { truncate } from '../text';
 
 export type DraftJob = {
-  title: string; company: string; description: string; score: number | null;
+  title: string; company: string; location?: string | null; description: string; score: number | null;
   matching_skills: string[]; missing_skills: string[]; mandatory_missing: string[]; requirements: string[]; suitability: string | null;
 };
 
@@ -32,11 +32,41 @@ export function coverLetterDraft(p: CandidateProfile, j: DraftJob): string {
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
-/** Fills the blanks that cover letter templates leave, such as [Company Name] or [Position]. */
-export function fillPlaceholders(letter: string, j: Pick<DraftJob, 'title' | 'company'>): string {
+const blank = (inner: string) => new RegExp(`[[{<]\\s*(?:${inner})\\s*[\\]}>]`, 'gi');
+const COMPANY = blank(`company(?:'s)?(?:\\s+name)?|organi[sz]ation(?:\\s+name)?|employer(?:\\s+name)?|hiring company`);
+const ROLE = blank(`(?:position|role|job|vacancy)(?:\\s+(?:title|name))?`);
+const DATE_BLANK = blank(`date|today'?s date|current date`);
+const PERSON = `(?:hiring manager|recruiter|recipient|contact person|manager)(?:'s)?(?:\\s+(?:full\\s+)?name)?|name of (?:the )?hiring manager`;
+const ADDRESS = blank(`(?:company |office |employer )?address|street address|city(?:,\\s*(?:state|country|postcode|zip(?: code)?))*`);
+const LONG_DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Colombo' });
+
+/**
+ * Fills the blanks that cover letter templates leave: [Company Name], [Position Title], [Date],
+ * [Hiring Manager Name] and [Company Address]. A greeting to an unknown name becomes "Dear Hiring
+ * Manager,"; a line holding only a name or address blank that cannot be filled is removed.
+ * Notes to yourself in brackets, such as "[specific reason from the job post]", are left for
+ * the AI model to fill, or for unfilledNotes to replace.
+ */
+export function fillPlaceholders(letter: string, j: Pick<DraftJob, 'title' | 'company' | 'location'>, now = new Date()): string {
   return letter
-    .replace(/[[{<]\s*(?:company(?:'s)?(?:\s+name)?|organi[sz]ation(?:\s+name)?|employer(?:\s+name)?|hiring company)\s*[\]}>]/gi, j.company)
-    .replace(/[[{<]\s*(?:position|role|job(?:\s+title)?|position title|vacancy)(?:\s+name)?\s*[\]}>]/gi, j.title);
+    .replace(COMPANY, j.company)
+    .replace(ROLE, j.title)
+    .replace(DATE_BLANK, LONG_DATE.format(now))
+    .replace(new RegExp(`^(\\s*(?:dear|hello|hi)\\s+)[[{<]\\s*(?:${PERSON})\\s*[\\]}>]`, 'gim'), '$1Hiring Manager')
+    .replace(new RegExp(`^[ \\t]*[[{<]\\s*(?:${PERSON}|(?:hiring manager|recipient)(?:'s)?\\s+(?:title|position))\\s*[\\]}>][ \\t]*,?[ \\t]*\\n?`, 'gim'), '')
+    .replace(new RegExp(`^[ \\t]*${ADDRESS.source}[ \\t]*,?[ \\t]*$`, 'gim'), j.location ?? '')
+    .replace(/^[ \t]*$\n(?=\n)/gm, '')
+    .replace(ADDRESS, j.location ?? '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Notes left in brackets for the writer, such as "[specific reason from the job post: ...]". */
+const NOTE = /\[[^\]\n]{12,200}\]/g;
+
+/** Without an AI model a note to yourself can't be written for you, so it becomes a plain phrase about the job. */
+export function unfilledNotes(text: string, j: Pick<DraftJob, 'title'>): string {
+  return text.replace(NOTE, `the work described in your ${j.title} listing`);
 }
 
 const GREETING = /^(dear|hello|hi|to whom it may concern|good (morning|afternoon))\b/i;
@@ -49,24 +79,33 @@ const OPENER = /\b(apply|applying|application|interest(ed)? in|express)\b[^.]*\b
  * sentence links what the job asks for to the skills you share. Your greeting,
  * body and sign-off are kept as you wrote them.
  */
-export function tailoredLetterDraft(letter: string, j: DraftJob): string {
-  const paras = fillPlaceholders(letter, j).split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
-  const greeting = paras[0] && GREETING.test(paras[0]) && paras[0].length < 90 ? paras.shift()! : 'Dear Hiring Manager,';
-  const signAt = paras.findIndex((x, i) => i > 0 && SIGN_OFF.test(x) && x.length < 160);
-  const closing = signAt >= 0 ? paras.splice(signAt) : [];
-  const body = paras;
+export function tailoredLetterDraft(letter: string, j: DraftJob, now = new Date()): string {
+  const paras = unfilledNotes(fillPlaceholders(letter, j, now), j).split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  // Letters often start with a header (your name, the date, the employer's address, a "Re:" line)
+  // above the greeting. That header is kept as it is, above the greeting.
+  const greetAt = paras.findIndex((x) => GREETING.test(x) && x.length < 90);
+  const header = greetAt > 0 ? paras.slice(0, greetAt) : [];
+  const greeting = greetAt >= 0 ? paras[greetAt]! : 'Dear Hiring Manager,';
+  const rest = greetAt >= 0 ? paras.slice(greetAt + 1) : paras;
+  const signAt = rest.findIndex((x, i) => i > 0 && SIGN_OFF.test(x) && x.length < 160);
+  const closing = signAt >= 0 ? rest.splice(signAt) : [];
+  const body = rest;
 
-  // Your old opening named another role, so its first sentence makes way for this one. The rest of it stays.
-  let rest = '';
-  if (body[0] && OPENER.test(body[0].split(/(?<=[.!?])\s+/)[0] ?? '')) {
-    rest = body.shift()!.split(/(?<=[.!?])\s+/).slice(1).join(' ');
+  // An opening that already names this role (a template's blank, now filled) is kept in your words.
+  // An opening that named another role makes way for this one; the rest of that paragraph stays.
+  const sentences = (body[0] ?? '').split(/(?<=[.!?])\s+/);
+  let opening: string;
+  if (body[0] && OPENER.test(sentences[0] ?? '') && sentences[0]!.toLowerCase().includes(j.title.toLowerCase())) {
+    opening = body.shift()!;
+  } else {
+    const tail = body[0] && OPENER.test(sentences[0] ?? '') ? (body.shift(), sentences.slice(1).join(' ')) : '';
+    opening = `I am writing to apply for the ${j.title} position at ${j.company}.${tail ? ` ${tail}` : ''}`;
   }
-  const opening = `I am writing to apply for the ${j.title} position at ${j.company}.${rest ? ` ${rest}` : ''}`;
   const shared = j.matching_skills.slice(0, 4);
   const fit = shared.length
     ? `Your listing asks for ${list(shared)}, and ${shared.length === 1 ? 'this is' : 'these are'} central to the experience I describe below.`
     : '';
-  return [greeting, fit ? `${opening} ${fit}` : opening, ...body, ...closing].join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+  return [...header, greeting, fit ? `${opening} ${fit}` : opening, ...body, ...closing].join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export function jobSummaryDraft(j: DraftJob): string {

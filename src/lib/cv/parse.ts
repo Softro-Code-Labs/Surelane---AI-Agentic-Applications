@@ -36,6 +36,50 @@ export function sniffType(buf: Buffer): 'application/pdf' | 'application/vnd.ope
   return null;
 }
 
+/**
+ * Text from a PDF with its paragraphs rebuilt from the layout, for writing such as a cover letter.
+ * PDFs store each printed line separately, so plain extraction breaks sentences mid-line and loses the
+ * gaps between paragraphs. Here a line that runs nearly the full width and is followed closely by the
+ * next is a wrapped sentence and is joined; a larger gap starts a new paragraph; bullets and short lines
+ * (a name, an address, "Sincerely,") stay on their own lines.
+ */
+export async function extractPdfParagraphs(buf: Buffer): Promise<string> {
+  const { getDocumentProxy } = await import('unpdf');
+  const doc = await getDocumentProxy(new Uint8Array(buf));
+  const pages: string[] = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const content = await (await doc.getPage(n)).getTextContent();
+    type Line = { y: number; left: number; right: number; text: string };
+    const lines: Line[] = [];
+    for (const it of content.items as any[]) {
+      if (typeof it.str !== 'string' || !it.transform) continue;
+      const x = it.transform[4] as number, y = it.transform[5] as number;
+      let line = lines.find((l) => Math.abs(l.y - y) < 2);
+      if (!line) { line = { y, left: x, right: x, text: '' }; lines.push(line); }
+      line.text += it.str;
+      if (it.str.trim()) { line.left = Math.min(line.left, x); line.right = Math.max(line.right, x + (it.width ?? 0)); }
+    }
+    const rows = lines.map((l) => ({ ...l, text: l.text.replace(/\s+/g, ' ').trim() })).filter((l) => l.text).sort((a, b) => b.y - a.y);
+    if (!rows.length) continue;
+    const gaps = rows.slice(1).map((r, i) => rows[i]!.y - r.y).filter((g) => g > 0).sort((a, b) => a - b);
+    // The normal gap between lines of one paragraph. A short letter has as many paragraph gaps as
+    // line gaps, so this takes the tighter end of the gaps rather than the middle.
+    const step = gaps[Math.floor(gaps.length / 4)] ?? 14;
+    const widest = Math.max(...rows.map((r) => r.right));
+    let out = rows[0]!.text;
+    for (let i = 1; i < rows.length; i++) {
+      const prev = rows[i - 1]!, row = rows[i]!;
+      const gap = prev.y - row.y;
+      const bullet = /^[•\-*▪◦·–]\s/.test(row.text);
+      if (gap > step * 1.35) out += `\n\n${row.text}`;
+      else if (!bullet && prev.right >= widest * 0.8 && !/[:]$/.test(prev.text)) out += ` ${row.text}`;
+      else out += `\n${row.text}`;
+    }
+    pages.push(out);
+  }
+  return pages.join('\n\n').trim();
+}
+
 export async function extractText(buf: Buffer, mime: string): Promise<string> {
   if (mime === 'application/pdf') {
     const { extractText: pdf, getDocumentProxy } = await import('unpdf');
@@ -69,7 +113,9 @@ function sections(text: string): Record<string, string[]> {
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
-    const short = line.length < 45 ? line.replace(/[:\-–|]+$/, '').trim() : '';
+    // A heading is short, starts with a capital and does not end a sentence. This keeps the wrapped
+    // last word of a sentence ("training.") from being taken for a "Training" section.
+    const short = line.length < 45 && !/^[a-z]/.test(line) && !/[.,;]$/.test(line) ? line.replace(/[:\-–|]+$/, '').trim() : '';
     const hit = short ? HEADINGS.find(([, re]) => re.test(short)) : undefined;
     if (hit) { cur = hit[0]; out[cur] ??= []; continue; }
     (out[cur] ??= []).push(line);
@@ -132,6 +178,24 @@ const AMBIGUOUS = new Set(['Logistics', 'Sales', 'Accounting', 'Banquet', 'Teach
 
 const stripBullet = (s: string) => s.replace(/^[•\-*▪◦·•]\s*/, '').trim();
 
+/** Detail lines inside an entry, such as "Technologies: Next.js" or "Live: example.com". */
+const DETAIL_LABEL = /^(technolog(?:y|ies)|tech(?:nical)? stack|stack|tools|live|link|url|website|github|role|client|phone)\s*:/i;
+const DATED = new RegExp(`${DATE}\\s*(?:(?:-|–|—|to|until)\\s*(?:present|current|now|to date|ongoing|${DATE}))?\\s*$`, 'i');
+
+/**
+ * The entries in a section such as Projects or Certifications, one per item, from their title
+ * lines: "TourVista Tours | Tour Booking Platform  Apr 2026 - Jun 2026" gives
+ * "TourVista Tours | Tour Booking Platform". A title line is not a bullet or a detail line, starts
+ * with a capital or digit, and has a date or a "|" separator. Returns [] when a section has none,
+ * so the caller can fall back to its plain lines.
+ */
+export function entryTitles(lines: string[]): string[] {
+  return lines
+    .filter((l) => !/^[•\-*▪◦·]/.test(l) && !DETAIL_LABEL.test(l) && /^[A-Z0-9"'(]/.test(l) && (DATED.test(l) || /\s\|\s/.test(l)))
+    .map((l) => l.replace(DATED, '').replace(/[\s|,–—-]+$/, '').trim())
+    .filter((l) => l.length > 2);
+}
+
 export function analyseCv(text: string, now = new Date()): CandidateProfile {
   const sec = sections(text);
   const header = sec.header ?? [];
@@ -175,10 +239,11 @@ export function analyseCv(text: string, now = new Date()): CandidateProfile {
     experienceLevel: level,
     education,
     degreeLevel: degreeLevel((sec.education ?? []).join('\n') || text),
-    certifications: (sec.certifications ?? []).map(stripBullet).filter(Boolean).slice(0, 12),
+    certifications: (entryTitles(sec.certifications ?? []).length ? entryTitles(sec.certifications ?? []) : (sec.certifications ?? []).map(stripBullet).filter(Boolean)).slice(0, 12),
     qualifications: findQualifications(text),
     workHistory: history,
-    projects: (sec.projects ?? []).map(stripBullet).filter((l) => l.length > 3 && l.length < 120).slice(0, 8),
+    // One line per project, so a long first project cannot push the rest (often on page 2) out.
+    projects: (entryTitles(sec.projects ?? []).length ? entryTitles(sec.projects ?? []) : (sec.projects ?? []).map(stripBullet).filter((l) => l.length > 3 && l.length < 120)).slice(0, 8),
     achievements: [...(sec.achievements ?? []), ...experience.filter((l) => /^[•\-*▪]/.test(l) && /\d/.test(l))].map(stripBullet).slice(0, 8),
     skills,
     languages: [...new Set([...languages, ...known])].slice(0, 6),

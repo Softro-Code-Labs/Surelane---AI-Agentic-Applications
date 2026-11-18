@@ -7,6 +7,8 @@ export type Settings = {
   agent_enabled: boolean; slot_morning: boolean; slot_midday: boolean; slot_evening: boolean; schedule_changed_at: Date;
   local_enabled: boolean; global_enabled: boolean; preferred_countries: string[]; preferred_locations: string[]; industries: string[];
   categories: string[]; extra_keywords: string[]; remote_pref: 'any' | 'remote' | 'hybrid' | 'onsite';
+  /** CV roles and skills not to search for. Optional, so a database not yet migrated reads as none hidden. */
+  hidden_keywords?: string[];
   min_score: number; max_post_age_days: number; custom_feeds: string[];
   email_enabled: boolean; email_recipient: string | null; email_mode: 'all' | 'strong'; email_no_results: 'summary' | 'silent';
   updated_at: Date;
@@ -20,7 +22,7 @@ const list = z.array(z.string().trim().min(1).max(200)).max(50);
 export const settingsPatch = z.object({
   agent_enabled: z.boolean(), slot_morning: z.boolean(), slot_midday: z.boolean(), slot_evening: z.boolean(),
   local_enabled: z.boolean(), global_enabled: z.boolean(), preferred_countries: list, preferred_locations: list, industries: list, categories: list,
-  extra_keywords: list, remote_pref: z.enum(['any', 'remote', 'hybrid', 'onsite']),
+  extra_keywords: list, hidden_keywords: list, remote_pref: z.enum(['any', 'remote', 'hybrid', 'onsite']),
   min_score: z.number().int().min(45).max(95), max_post_age_days: z.number().int().min(1).max(90),
   custom_feeds: list, email_enabled: z.boolean(),
   email_recipient: z.string().trim().email().max(200).nullable(), email_mode: z.enum(['all', 'strong']),

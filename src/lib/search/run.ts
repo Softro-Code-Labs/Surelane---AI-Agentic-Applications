@@ -1,5 +1,6 @@
 import { aiEnabled, refineMatch, type Provider } from '../ai/provider';
 import type { CandidateProfile } from '../cv/parse';
+import { searchProfile } from '../cv-terms';
 import { one, q } from '../db';
 import { scoreJob, type MatchResult } from '../match/score';
 import { sendRunEmail } from '../notify/email';
@@ -194,7 +195,7 @@ export async function executeSearch({ runId, trigger }: RunOptions, deps: Deps =
     // 'global' meant Sri Lanka and international before Local had its own switch, so both-on keeps that value.
     await q('UPDATE search_runs SET mode=$2 WHERE id=$1', [runId, settings.global_enabled ? (settings.local_enabled ? 'global' : 'global_only') : 'local']);
 
-    const profile = cv.profile;
+    const profile = searchProfile(cv.profile, settings);
     const version = String(cv.profile_version);
     await rescoreStored(profile, version, settings);
 

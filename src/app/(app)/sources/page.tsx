@@ -5,6 +5,7 @@ import { Page, PageHead, Section, StatusText, SubGroup, Tag } from '@/components
 import { q } from '@/lib/db';
 import { formatColombo } from '@/lib/schedule';
 import { getCv, getSettings } from '@/lib/settings';
+import { searchProfile } from '@/lib/cv-terms';
 import { UNAVAILABLE_SOURCES } from '@/lib/sources/adapters';
 import { buildSources } from '@/lib/sources/registry';
 import type { SourceAdapter } from '@/lib/sources/types';
@@ -17,7 +18,7 @@ export default async function Sources() {
   const [s, cv] = await Promise.all([getSettings(), getCv()]);
   const latest = await q<{ source: string; status: string; jobs_found: number; error: string | null; checked_at: Date }>(
     `SELECT DISTINCT ON (source) source, status, jobs_found, error, checked_at FROM search_run_sources ORDER BY source, checked_at DESC`);
-  const term = cv?.profile.targetTitles[0] ?? 'jobs';
+  const term = (cv ? searchProfile(cv.profile, s).targetTitles[0] : null) ?? 'jobs';
   const list = buildSources(s);
   const searched = { private: list.filter((a) => a.region !== 'Government'), government: list.filter((a) => a.region === 'Government') };
   const notSearched = { private: UNAVAILABLE_SOURCES.filter((u) => !u.government), government: UNAVAILABLE_SOURCES.filter((u) => u.government) };

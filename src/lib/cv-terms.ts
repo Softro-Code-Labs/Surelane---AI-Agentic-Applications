@@ -3,6 +3,18 @@ import type { Settings } from './settings';
 
 const unique = (xs: string[]) => [...new Map(xs.map((x) => [x.trim().toLowerCase(), x.trim()])).values()].filter(Boolean);
 
+/**
+ * Your CV as searches and match scores see it: roles and skills you chose to hide (a past job you
+ * don't want more of, or a word read wrongly) are left out. The CV itself, cover letters and the
+ * AI model still see everything.
+ */
+export function searchProfile<T extends Pick<CandidateProfile, 'targetTitles' | 'skills' | 'keywords'>>(p: T, s: { hidden_keywords?: string[] | null }): T {
+  const hidden = new Set((s.hidden_keywords ?? []).map((k) => k.trim().toLowerCase()));
+  if (!hidden.size) return p;
+  const keep = (x: string) => !hidden.has(x.trim().toLowerCase());
+  return { ...p, targetTitles: p.targetTitles.filter(keep), skills: p.skills.filter(keep), keywords: p.keywords.filter(keep) };
+}
+
 /** Roles to search for: your own keywords first, then the roles your CV points to. */
 export function cvRoles(p: Pick<CandidateProfile, 'targetTitles'>, s: Pick<Settings, 'extra_keywords'>, max = 3): string[] {
   return unique([...s.extra_keywords, ...p.targetTitles.map((t) => t.replace(/[()|].*$/, ''))]).filter((t) => t.length > 2).slice(0, max);

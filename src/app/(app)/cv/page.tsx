@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { CvDrop, CvRemove, CvReplace } from '@/components/Forms';
 import { Page, PageHead, Section, Tag } from '@/components/ui';
 import { formatColombo } from '@/lib/schedule';
-import { getCv } from '@/lib/settings';
+import { getCv, getSettings } from '@/lib/settings';
+import { CvKeywords } from '@/components/CvKeywords';
 import { FAMILY_LABEL } from '@/lib/match/taxonomy';
 
 export const metadata: Metadata = { title: 'My CV' };
@@ -25,7 +26,7 @@ function Tags({ title, items }: { title: string; items: string[] }) {
 const initials = (name: string | null) => (name ?? '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
 export default async function CvPage() {
-  const cv = await getCv();
+  const [cv, settings] = await Promise.all([getCv(), getSettings()]);
   if (!cv) return (
     <Page width="narrow">
       <PageHead title="My CV" eyebrow="Your profile" intro="Upload one CV. Surelane reads it and uses it for every search." />
@@ -76,7 +77,7 @@ export default async function CvPage() {
           <Block title="Achievements" items={p.achievements} />
           <Block title="Projects" items={p.projects} />
           <Tags title="Languages" items={p.languages} />
-          <Tags title="Search keywords" items={p.keywords} />
+          {p.keywords.length > 0 && <Section title="Search keywords"><CvKeywords keywords={p.keywords} hidden={settings.hidden_keywords ?? []} /></Section>}
           <div className="mb-6"><CvRemove /></div>
         </div>
         <div className="min-w-0 lg:sticky lg:top-[88px] lg:self-start">

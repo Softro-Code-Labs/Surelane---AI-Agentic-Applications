@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 -- Local (Sri Lanka) and Global (international) are switched separately. Existing installs keep Local on.
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS local_enabled boolean NOT NULL DEFAULT true;
+-- Roles or skills from your CV that you don't want searched for, such as a past job.
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS hidden_keywords text[] NOT NULL DEFAULT '{}';
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS cv (

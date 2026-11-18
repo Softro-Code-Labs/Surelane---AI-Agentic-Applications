@@ -10,6 +10,7 @@ import { linkedinSearches, linkedinSite } from '@/lib/linkedin';
 import { GLOBAL_SITES, GOVERNMENT_SITES, byPopularity, siteSearches } from '@/lib/sites';
 import { one } from '@/lib/db';
 import { SCOPE_OFF, getCv, getSettings, searchesOff } from '@/lib/settings';
+import { searchProfile } from '@/lib/cv-terms';
 
 export const metadata: Metadata = { title: 'Jobs' };
 
@@ -33,9 +34,10 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Job
     return qs ? `/jobs?${qs}` : '/jobs';
   };
   const active = Object.values(f).some(Boolean);
-  const linkedin = cv ? linkedinSite(linkedinSearches(cv.profile, s)) : null;
+  const profile = cv ? searchProfile(cv.profile, s) : null;
+  const linkedin = profile ? linkedinSite(linkedinSearches(profile, s)) : null;
   // Sri Lankan sites and international platforms share one list, most popular first.
-  const sites = cv ? byPopularity([...(linkedin ? [linkedin] : []), ...siteSearches(cv.profile, s), ...siteSearches(cv.profile, s, GLOBAL_SITES)]) : [];
+  const sites = profile ? byPopularity([...(linkedin ? [linkedin] : []), ...siteSearches(profile, s), ...siteSearches(profile, s, GLOBAL_SITES)]) : [];
   const government = cv ? byPopularity(siteSearches(cv.profile, s, GOVERNMENT_SITES, { latest: true })) : [];
   return (
     <Page>

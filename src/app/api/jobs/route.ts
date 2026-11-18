@@ -5,6 +5,7 @@ import { one } from '@/lib/db';
 import { requirementLines, scoreJob } from '@/lib/match/score';
 import { classify } from '@/lib/search/classify';
 import { getCv, getSettings } from '@/lib/settings';
+import { searchProfile } from '@/lib/cv-terms';
 import { isLinkedinUrl, linkedinJobId, linkedinJobUrl } from '@/lib/linkedin';
 import { jobFingerprint, parseDeadline, safeUrl } from '@/lib/text';
 
@@ -30,14 +31,14 @@ export async function POST(req: Request) {
   const known = await one<{ id: string }>(`SELECT id FROM jobs WHERE md5(url) = md5($1) AND url = $1 ORDER BY id LIMIT 1`, [url]);
   if (known) return NextResponse.json({ ok: true, id: known.id, existing: true });
   const label = linkedin ? 'LinkedIn, added by you' : 'Added by you';
-  const cv = await getCv();
+  const [cv, settings] = await Promise.all([getCv(), getSettings()]);
   if (!cv) return NextResponse.json({ error: 'Upload your CV first, so this job can be scored.' }, { status: 409 });
   // A date with no time means the whole of that day in Sri Lanka, as it does for searched jobs.
   const deadline = j.deadline ? parseDeadline(j.deadline) : null;
   if (j.deadline && !deadline) return NextResponse.json({ error: 'That closing date could not be read. Use a date such as 2026-12-31.' }, { status: 400 });
   const raw = { source: 'manual', sourceLabel: label, url, title: j.title, company: j.company, location: j.location, description: j.description, deadline };
   const c = classify(raw);
-  const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: c.workMode }, cv.profile, await getSettings());
+  const m = scoreJob({ title: j.title, description: j.description, location: j.location, workMode: c.workMode }, searchProfile(cv.profile, settings), settings);
   const row = await one<{ id: string }>(
     `INSERT INTO jobs (fingerprint, source, source_label, url, sources, title, company, location, country, market, work_mode, sl_eligibility, deadline, description,
        requirements, verified_at, verify_method, score, tier, scored_by, matching_skills, missing_skills, mandatory_missing, explanation, suitability, profile_version, notified_at)

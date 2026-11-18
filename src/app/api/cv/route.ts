@@ -6,6 +6,7 @@ import { MAX_CV_BYTES, analyseCv, extractText, sniffType } from '@/lib/cv/parse'
 import { q } from '@/lib/db';
 import { rescoreStored } from '@/lib/search/run';
 import { getSettings } from '@/lib/settings';
+import { searchProfile } from '@/lib/cv-terms';
 import { triggerWorker } from '@/lib/dispatch';
 
 export async function POST(req: Request) {
@@ -30,7 +31,8 @@ export async function POST(req: Request) {
   const profile = analyseCv(text);
   const name = file.name.replace(/[^\w.\- ()]/g, '_').slice(0, 120);
   const version = await storeCv(buf, mime, name, text, profile);
-  await rescoreStored(profile, version, await getSettings());
+  const settings = await getSettings();
+  await rescoreStored(searchProfile(profile, settings), version, settings);
   if (aiEnabled()) {
     await q(`INSERT INTO ai_tasks (kind, profile_version, status) VALUES ('cv_profile',$1,'queued')`, [version]);
     await triggerWorker();

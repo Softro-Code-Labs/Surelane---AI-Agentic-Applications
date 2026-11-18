@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guard } from '@/lib/auth';
 import { cleanLetter, letterProblem, removeCoverLetter, storeCoverLetter, updateCoverLetterText } from '@/lib/cover-letter';
-import { MAX_CV_BYTES, extractText, sniffType } from '@/lib/cv/parse';
+import { MAX_CV_BYTES, extractPdfParagraphs, extractText, sniffType } from '@/lib/cv/parse';
 
 const pasted = z.object({ text: z.string().max(50_000) });
 
@@ -31,7 +31,8 @@ export async function POST(req: Request) {
   if (!mime) return NextResponse.json({ error: 'Only PDF, DOCX and text files can be uploaded.' }, { status: 415 });
   let text: string;
   try {
-    text = cleanLetter(mime === 'text/plain' ? buf.toString('utf8') : await extractText(buf, mime));
+    // A letter needs its paragraphs, so PDFs are read with their layout.
+    text = cleanLetter(mime === 'text/plain' ? buf.toString('utf8') : mime === 'application/pdf' ? await extractPdfParagraphs(buf) : await extractText(buf, mime));
   } catch {
     return NextResponse.json({ error: 'This file could not be read. It may be damaged or password protected.' }, { status: 422 });
   }

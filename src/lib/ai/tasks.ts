@@ -9,7 +9,7 @@ import { aiEnabled, enrichProfile, profileBrief, type Provider } from './provide
 
 export type TaskKind = 'cover_letter' | 'job_summary' | 'cv_improve' | 'career_recs';
 
-const JOB_FIELDS = `title, company, description, score, matching_skills, missing_skills, mandatory_missing, requirements, suitability`;
+const JOB_FIELDS = `title, company, location, description, score, matching_skills, missing_skills, mandatory_missing, requirements, suitability`;
 
 async function matchedJobs() {
   return q<{ missing_skills: string[] }>(`SELECT missing_skills FROM jobs WHERE status = 'active' AND tier IS NOT NULL ORDER BY score DESC LIMIT 40`);
@@ -57,7 +57,8 @@ export function tailorPrompt(brief: string, letter: string, job: DraftJob, jobCh
 - Keep the true facts from their letter that suit this job, and drop the parts that don't.
 - Name this role and company, and connect the candidate's real experience and skills to what the job asks for.
 - Use only facts from their letter and the candidate details. Do not invent employers, numbers, dates or qualifications.
-- Keep their greeting and sign-off style. Return only the letter.
+- Text in square brackets is a note the candidate left to fill in, such as "[specific reason from the job post]". Fill it with a true detail from the job post, or rewrite the sentence without it. Never leave square brackets in the letter.
+- Keep their header (name, contact details, date, address, "Re:" line), greeting and sign-off style. Return only the letter.
 
 CANDIDATE
 ${brief}
